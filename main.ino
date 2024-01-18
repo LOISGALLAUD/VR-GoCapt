@@ -21,6 +21,7 @@
 #define LED1 14
 #define LED2 27
 #define LED3 26
+
 //---------------------------------------------------------------------------
 /*PROTOTYPES*/
 
@@ -36,24 +37,27 @@ void readDataFromFile(String fileName);
 //---------------------------------------------------------------------------
 /*VARIABLES*/
 
-// State Machine
+// State machine
+int state = 0;
 
-int State = 0;
-
-// Record Button
+// Record button
 int buttonTime = millis();
 struct Button {
-	const uint8_t PIN;
+	const uint8_t pin;
 	bool pressed;
 };
-Button recButton = {REC_BUTTON,false};
+Button recButton = {
+  .pin = REC_BUTTON,
+  .pressed = false
+}
 
-//testbench
-int Time = millis();
+// testbench
+int time = millis();
 
 // SD setup
 String fileName;
 SdFat sd;
+
 // Sensors setup
 TCA9548A i2cMux;
 byte addresses[N_ADDRESS] = {0xC0, 0xC2, 0xC4, 0xC6/*,
@@ -74,7 +78,7 @@ bool hasRemote = false;
 IPAddress remote;
 unsigned int remotePort;
 char packetBuffer[UDP_TX_PACKET_MAX_SIZE];
-WiFiUDP Udp;
+WiFiUDP udp;
 
 // JSON documents setup
 JsonDocument rawDataDocs;
@@ -162,19 +166,12 @@ void setupSDCard()
 
 void writeDataToFile(String fileName, String data)
 {
-  File dataFile = sd.open(fileName.c_str(), O_RDWR | O_CREAT | O_AT_END);
-  if (!dataFile)
-  {
-    Serial.println("Error opening file!");
-    return;
-  }
-  dataFile.print(data + "\n");
-  dataFile.close();
-}
+  /*
+  Create a file on the SD card and write the data in it
 
-void appendDataToFile(String fileName, String data)
-{
-  File dataFile = sd.open(fileName.c_str(), O_WRITE | O_AT_END);
+  Only used when starting record mode
+  */
+  File dataFile = sd.open(fileName.c_str(), O_RDWR | O_CREAT | O_AT_END);
   if (!dataFile)
   {
     Serial.println("Error opening file!");
@@ -186,6 +183,9 @@ void appendDataToFile(String fileName, String data)
 
 void appendDataToFile(String fileName, JsonDocument data)
 {
+  /*
+  Append the data to the existing file
+  */
   File dataFile = sd.open(fileName.c_str(), O_WRITE | O_AT_END);
   if (!dataFile)
   {
@@ -193,18 +193,8 @@ void appendDataToFile(String fileName, JsonDocument data)
     digitalWrite(ERR_LED,HIGH);
     return;
   }
-  serializeJson(data,dataFile);
+  serializeJson(data, dataFile);
   dataFile.close();
-}
-
-void appendDataToFile(File& dataFile, String data)
-{
-  if (!dataFile)
-  {
-    Serial.println("Error opening file!");
-    return;
-  }
-  dataFile.print(data + "\n");
 }
 
 void readDataFromFile(String fileName)
@@ -269,7 +259,7 @@ String getNextFileName()
 
 void readAndWriteData()
 {
-  // int packetSize = Udp.parsePacket();         // Check if there's an incoming UDP packet
+  // int packetSize = udp.parsePacket();         // Check if there's an incoming udp packet
 
   // // If an incoming packet is detected
   // if (packetSize)
@@ -277,7 +267,7 @@ void readAndWriteData()
   //   Serial.print("Received packet of size ");
   //   Serial.println(packetSize);
   //   Serial.print("From ");
-  //   remote = Udp.remoteIP();         // Get the IP address of the sender
+  //   remote = udp.remoteIP();         // Get the IP address of the sender
   //   remotePort = atoi(packetBuffer); // Parse the port number from the packet (Note: There's a potential issue here, see below)
   //   hasRemote = true;
 
@@ -292,7 +282,7 @@ void readAndWriteData()
 
   //   Serial.print(", port");
   //   Serial.print(remotePort);                       // Print the sender's port number
-  //   Udp.read(packetBuffer, UDP_TX_PACKET_MAX_SIZE); // Read the packet data into packetBuffer
+  //   udp.read(packetBuffer, UDP_TX_PACKET_MAX_SIZE); // Read the packet data into packetBuffer
   //   Serial.print("Contents");
   //   Serial.println(atoi(packetBuffer));
   // }
@@ -316,12 +306,12 @@ void readAndWriteData()
         unsigned int angle16 = high_byte;                // Calculate 16 bit angle
         angle16 <<= 8;
         angle16 += low_byte;
-        rawDataDocs["a" + String(j) + "c" + String(i) + "Time"] = millis() - sensorTime;
+        rawDataDocs["a" + String(j) + "c" + String(i) + "time"] = millis() - sensorTime;
         rawDataDocs["a" + String(j) + "c" + String(i) + "angle16"] = angle16;        // Read the sensor data and assign it to the JSON document
       }
       else
       {
-        rawDataDocs["a" + String(j) + "c" + String(i) + "Time"] = millis() - sensorTime;
+        rawDataDocs["a" + String(j) + "c" + String(i) + "time"] = millis() - sensorTime;
         rawDataDocs["a" + String(j) + "c" + String(i) + "angle16"] = -1;           // Error message 
       }
     }
@@ -331,16 +321,15 @@ void readAndWriteData()
   // if (hasRemote)
   // {
   //   // If a remote connection has been established
-  //   Udp.beginPacket(remote, atoi(packetBuffer)); // Begin UDP packet transmission to the remote IP and port (Note: There's a potential issue here, see below)
+  //   udp.beginPacket(remote, atoi(packetBuffer)); // Begin udp packet transmission to the remote IP and port (Note: There's a potential issue here, see below)
   //   String sendBuffer;
   //   serializeJson(rawDataDocs,sendBuffer);
-  //   Udp.print(sendBuffer); // Send the sensor data for each channel
-  //   Udp.endPacket(); // End the UDP packet transmission
+  //   udp.print(sendBuffer); // Send the sensor data for each channel
+  //   udp.endPacket(); // End the udp packet transmission
   // }
 
   // Writing data to the SD card
-
-  appendDataToFile(fileName,rawDataDocs);
+  appendDataToFile(fileName, rawDataDocs);
 
   // Simulation
   delay(CMPS_DELAY);
@@ -348,58 +337,66 @@ void readAndWriteData()
 
 void stateMachine()
 {
-  if (recButton.pressed){ //if button pressed
-    if (!digitalRead(recButton.PIN)) //check if the button is still pressed
+  if (recButton.pressed && !digitalRead(recButton.PIN))
+  {
+    if (millis() - buttonTime < 800)
     {
-      if(millis()-buttonTime < 800)  // before 800 ms put the first indicator led on
-      {
-        digitalWrite(LED1,HIGH);
-        digitalWrite(LED2,LOW);
-        digitalWrite(LED3,LOW);
-      }
-      else if(millis()-buttonTime >= 800 && millis()-buttonTime < 1800)  // after 800 ms put the second indicator led on
-      {
-        digitalWrite(LED1,HIGH);
-        digitalWrite(LED2,HIGH);
-        digitalWrite(LED3,LOW);
-      }
-      else if(millis()-buttonTime >= 1800 && millis()-buttonTime < 2800)  // after 1800 ms put the third indicator led on
-      {
-        digitalWrite(LED1,HIGH);
-        digitalWrite(LED2,HIGH);
-        digitalWrite(LED3,HIGH);
-      }
-      else if(millis()-buttonTime >= 2800) // start acquisition, put the indicators leds off and the record led on
-      {
-        digitalWrite(LED1,LOW);
-        digitalWrite(LED2,LOW);
-        digitalWrite(LED3,LOW);
-        if (State == 0)  // check rising state
-        {
-          sensorTime = millis(); // démarrage de l'acquisition
-          fileName = getNextFileName();
-          writeDataToFile(fileName,fileName);
-        }
-        State = !State;  //change SM state
-        recButton.pressed = false; //reset button
-      }
+      setIndicatorLeds(1);
     }
-    else  //put all the indicators leds off
+    else if (millis() - buttonTime < 1800)
     {
-      digitalWrite(LED1,LOW);
-      digitalWrite(LED2,LOW);
-      digitalWrite(LED3,LOW);
-      recButton.pressed = false; //reset button
+      setIndicatorLeds(2);
+    }
+    else if (millis() - buttonTime < 2800)
+    {
+      setIndicatorLeds(3);
+    }
+    else
+    {
+      startAcquisition();
     }
   }
+  else
+  {
+    resetLeds();
+  }
+}
+
+void setIndicatorLeds(int count)
+{
+  digitalWrite(LED1, HIGH);
+  digitalWrite(LED2, count > 1 ? HIGH : LOW);
+  digitalWrite(LED3, count > 2 ? HIGH : LOW);
+}
+
+void startAcquisition()
+{
+  resetLeds();
+  if (state == 0)
+  {
+    sensorTime = millis();
+    fileName = getNextFileName();
+    writeDataToFile(fileName, fileName);
+  }
+  state = !state;
+  recButton.pressed = false;
+}
+
+void resetLeds()
+{
+  digitalWrite(LED1, LOW);
+  digitalWrite(LED2, LOW);
+  digitalWrite(LED3, LOW);
 }
 
 //---------------------------------------------------------------------------
 /* INTERRUPTS */
+
 void IRAM_ATTR isr_rec(){
   recButton.pressed = true;
   buttonTime = millis();
 }
+
 //---------------------------------------------------------------------------
 /*MAIN*/
 
@@ -416,39 +413,42 @@ void setup()
 
   digitalWrite(LED3,HIGH);
   digitalWrite(ERR_LED,HIGH);
+
   //connectToWiFi();
   setupSDCard();
   setupSensors();
-  //Udp.begin(serverPort);
+  //udp.begin(serverPort);
   Serial.println("IP Address Microcontroller:");
   //Serial.println(WiFi.localIP());
-  Serial.print("Time after setup:");Serial.println(millis() - Time);
-  Time = millis();
+
+  // time setup
+  Serial.print("time after setup:");Serial.println(millis() - time);
+  time = millis();
 
   digitalWrite(LED3,LOW);
   digitalWrite(ERR_LED,LOW);
 
-  //Interrupts
-  attachInterrupt(recButton.PIN,isr_rec,FALLING);
+  // Interrupts
+  attachInterrupt(recButton.PIN, isr_rec, FALLING);
 }
 
 void loop()
 {
-  // State Machine
+  // state Machine
   stateMachine();
 
   // Output Logic
-  if (State == 1)
+  if (state == 1)
   {
     readAndWriteData();
-    digitalWrite(REC_LED,HIGH);
+    digitalWrite(REC_LED, HIGH);
   }
   else
   {
-    digitalWrite(REC_LED,LOW);
+    digitalWrite(REC_LED, LOW);
   }
 
   // Debugging (print the loop total execution time. It must be under 20ms for 50fps.)
-  Serial.println(millis()-Time);
-  Time = millis();
+  Serial.println(millis() - time);
+  time = millis();
 }
