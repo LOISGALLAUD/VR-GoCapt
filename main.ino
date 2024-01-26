@@ -31,6 +31,7 @@ void connectToWiFi();
 void setupSDCard();
 void printDirectory(File dir);
 String getNextFileName();
+void readSensorData(JsonDocument &rawDataDocs);
 void writeDataToFile(String fileName, String data);
 void readDataFromFile(String fileName);
 
@@ -81,6 +82,17 @@ char packetBuffer[UDP_TX_PACKET_MAX_SIZE];
 WiFiUDP udp;
 
 // JSON documents setup
+type struct SensorData
+{
+  int time;
+  int x;
+  int y;
+  int z;
+  int accx;
+  int accy;
+  int accz;
+
+};
 JsonDocument rawDataDocs;
 
 //---------------------------------------------------------------------------
@@ -255,6 +267,53 @@ String getNextFileName()
   String fileName = "/data_" + String(maxNumber + 1) + ".txt";
 
   return fileName;
+}
+
+void readSensorData(JsonDocument &rawDataDocs) {
+  // Reading data from the sensors
+  JsonArray data = rawDataDocs.createNestedArray("data");
+  
+  for (int i = 0; i < N_CHANNELS; i++) {
+    JsonObject sensorObject = data.createNestedObject();
+    sensorObject["time"] = millis() - sensorTime;
+
+    i2cMux.setChannel(channels[i]);  // Sélectionne le canal I2C actuel en utilisant le multiplexeur
+    
+    for (int j = 0; j < N_ADDRESS; j++) {
+      if (validCMPSs[j + i * N_ADDRESS] == 1) {
+        Wire.beginTransmission(addresses[j] >> 1);
+        Wire.write(CMPS_GET_ANGLE16);
+        Wire.endTransmission();
+        Wire.requestFrom(addresses[j] >> 1, 2);
+        
+        while (Wire.available() < 2); // Useful for multiple byte reading
+        unsigned char high_byte = Wire.read();
+        unsigned char low_byte = Wire.read();
+        unsigned int angle16 = high_byte;
+        angle16 <<= 8;
+        angle16 += low_byte;
+
+        // Store the sensor data in a SensorData object
+        SensorData sensorData;
+        sensorData.x = ...;
+        sensorData.y = ...;
+        sensorData.z = ...;
+
+        // Add the sensor data to the JSON document
+        JsonObject positionObject = sensorObject.createNestedObject("position");
+        positionObject["x"] = sensorData.x;
+        positionObject["y"] = sensorData.y;
+        positionObject["z"] = sensorData.z;
+      }
+      else {
+        // En cas d'erreur, ajoute un message d'erreur aux données du capteur
+        JsonObject positionObject = sensorObject.createNestedObject("position");
+        positionObject["x"] = -1;
+        positionObject["y"] = -1;
+        positionObject["z"] = -1;
+      }
+    }
+  }
 }
 
 void readAndWriteData()
