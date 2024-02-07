@@ -10,7 +10,9 @@
 
 ## Description
 
-<img src="images/readme/global_system.png" width="100%" align="center" alt="README.md" title="README.md">
+<!-- <img src="images/readme/global_system.png" width="100%" align="center" alt="README.md" title="README.md"> -->
+
+_coming soon_
 
 ## Data Extraction
 
@@ -27,10 +29,10 @@ We are a team of 5 engineering students from Télécom Physique Strasbourg, a Fr
 ![team group](/images/readme/team.png)
 
 - [**Emilie Ferreira**](https://www.linkedin.com/in/emilie-ferreira-96755721b/) - Project Manager
-- [Nathan Grillet-Niess](https://www.linkedin.com/in/natgrn/) - Technical Manager
+- [Farah Gherir](https://www.linkedin.com/in/farah-gherir-17ab21268/) - Quality Manager
 - [Nathan Lebas](https://www.linkedin.com/in/nathan-lebas-a6486619a/) - Communication Manager
-- [**Farah Gherir**](https://www.linkedin.com/in/farah-gherir-17ab21268/) - Quality Manager
-- [**Loïs Gallaud**](https://www.linkedin.com/in/loisgallaud/) - Software Manager
+- [Nathan Grillet-Niess](https://www.linkedin.com/in/natgrn/) - Technical Manager
+- [Loïs Gallaud](https://www.linkedin.com/in/loisgallaud/) - Software Manager
 
 ## License
 
