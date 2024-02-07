@@ -1,0 +1,80 @@
+# Ignore backup files created by Arduino IDE
+*.ino.backup
+
+# Ignore temporary files created by text editor
+*~
+
+# Ignore temporary files created by Arduino IDE
+*.o
+
+# Ignore compiled binary files
+*.elf
+
+# Ignore compiled hex files
+*.hex
+
+# Ignore generated documentation files
+/doc/
+
+# Ignore Arduino IDE user configuration files
+/.vscode/
+/.settings/
+
+# Ignore environment-specific configuration files
+/.idea/
+/.vs/
+
+# Ignore build files and executables
+/build/
+
+# Ignore debug files
+*.log
+*.trace
+
+# Ignore cache files
+/.cache/
+/.clangd/
+/.cquery/
+
+# Ignore debug configuration files
+*.launch
+*.json
+
+# Ignore compilation files
+*.bin
+*.eep
+*.elf
+*.hex
+*.a
+*.ar
+*.bz2
+*.gz
+*.lzma
+*.lzo
+*.zip
+*.raw
+*.rst
+*.so
+*.z
+
+# Ignore files created by tests or external tools
+/.dub/
+/.dub.sdl/
+/dub.selections.json
+/DubSelections.json
+
+# Ignore temporary files
+/.temp/
+
+# Ignore backup files
+*~
+
+# Ignore cache files
+.cache
+
+# Ignore temporary files
+.tmp
+
+# Ignore user-specific configuration files
+/.idea/
+.vscode/
