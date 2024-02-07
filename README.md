@@ -4,4 +4,6 @@
 
 ## Description
 
+![Global system](image.png)
+
 ## About
