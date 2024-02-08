@@ -12,6 +12,8 @@ float analogToVoltage(int analogValue);
 const float VCC = 3.3; // Voltage supplied to sensors
 const float BITS = 1024.0; // Number of bits in ADC
 const int NUM_VALUES = 10; // Number of values to average over
+const float SLOPE = 69.9;
+const float OFFSET = 529;
 
 float mean_weight = 0.0;
 float poids_mesures[NUM_VALUES];
@@ -61,9 +63,7 @@ void loop() {
         vout_tot += vout;
     }
 
-    const float COEFF_DIR = 69.9;
-    const float OFFSET = 529;
-    float poids_mesure = COEFF_DIR * vout_tot - OFFSET;
+    float poids_mesure = SLOPE * vout_tot - OFFSET; // Linear regression
 
     poids_mesures[index] = poids_mesure;
     index = (index + 1) % NUM_VALUES;
