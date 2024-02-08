@@ -16,7 +16,7 @@ const float SLOPE = 69.9;
 const float OFFSET = 529;
 
 float mean_weight = 0.0;
-float poids_mesures[NUM_VALUES];
+float weight_measurements[NUM_VALUES];
 unsigned int index = 0;
 
 // Calibration factor
@@ -56,29 +56,29 @@ void setup() {
 }
 
 void loop() {
-    float vout_tot = 0.0;
+    float vout_total = 0.0;
     for (int i = 0; i < 4; i++) {
         float vout = analogToVoltage(analogRead(ffs1 + i));
         vout *= cf;
-        vout_tot += vout;
+        vout_total += vout;
     }
 
-    float poids_mesure = SLOPE * vout_tot - OFFSET; // Linear regression
+    float weight_measurement = SLOPE * vout_total - OFFSET; // Linear regression
 
-    poids_mesures[index] = poids_mesure;
+    weight_measurements[index] = weight_measurement;
     index = (index + 1) % NUM_VALUES;
 
     if (index == 0) {
         float sum = 0.0;
         for (int i = 0; i < NUM_VALUES; i++) {
-            sum += poids_mesures[i];
+            sum += weight_measurements[i];
         }
         
         // Mean value
         mean_weight = sum / NUM_VALUES;
 
-        // Réinitialisation du tableau
-        memset(poids_mesures, 0, sizeof(poids_mesures));
+        // Resetting the array
+        memset(weight_measurements, 0, sizeof(weight_measurements));
     }
 
     Serial.println(mean_weight);
