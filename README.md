@@ -1,5 +1,6 @@
 <img src="images/readme/header.png" width="100%" align="center" alt="README.md" title="README.md">
-<h1 align="center">Welcome to our engineering project</h1>
+<h1 align="center"><b>VR-GoCapt</b></h1>
+<p align="center"><i>Smart sensor equiment designed for VR</i></p>
 <p align="center">
     <img alt="License: MIT" src="https://img.shields.io/badge/project status-ongoing-brightgreen" target="_blank" /> 
     <img src="https://img.shields.io/badge/language-c++-blue" />
