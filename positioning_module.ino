@@ -32,6 +32,7 @@ void setupSDCard();
 void printDirectory(File dir);
 String getNextFileName();
 void readSensorData(JsonDocument &rawDataDocs);
+void readSensorData(int* sensorArray);
 void writeDataToFile(String fileName, String data);
 void readDataFromFile(String fileName);
 
@@ -269,16 +270,18 @@ String getNextFileName()
   return fileName;
 }
 
-void readSensorData(JsonDocument &rawDataDocs) {
+void readSensorData(JsonDocument rawDataDocs) {
   // Reading data from the sensors
   JsonArray data = rawDataDocs.createNestedArray("data");
   
+  // Iterate over each channel
   for (int i = 0; i < N_CHANNELS; i++) {
     JsonObject sensorObject = data.createNestedObject();
     sensorObject["time"] = millis() - sensorTime;
 
-    i2cMux.setChannel(channels[i]);  // Sélectionne le canal I2C actuel en utilisant le multiplexeur
+    i2cMux.setChannel(channels[i]);  // Selects the current I2C channel using the multiplexer
     
+    // Iterate over each sensor
     for (int j = 0; j < N_ADDRESS; j++) {
       if (validCMPSs[j + i * N_ADDRESS] == 1) {
         Wire.beginTransmission(addresses[j] >> 1);
@@ -306,11 +309,65 @@ void readSensorData(JsonDocument &rawDataDocs) {
         positionObject["z"] = sensorData.z;
       }
       else {
-        // En cas d'erreur, ajoute un message d'erreur aux données du capteur
+        // In case of error, add an error message to the sensor data
         JsonObject positionObject = sensorObject.createNestedObject("position");
         positionObject["x"] = -1;
         positionObject["y"] = -1;
         positionObject["z"] = -1;
+      }
+    }
+  }
+  return rawDataDocs;
+}
+
+void readSensorData(int* sensorArray) {
+  int index = 0;
+  
+  // Iterate over each channel
+  for (int i = 0; i < N_CHANNELS; i++) {
+    
+    // Iterate over each sensor
+    for (int j = 0; j < N_ADDRESS; j++) {
+      if (validCMPSs[j + i * N_ADDRESS] == 1) {
+        Wire.beginTransmission(addresses[j] >> 1);
+        Wire.write(CMPS_GET_ANGLE16);
+        Wire.endTransmission();
+        Wire.requestFrom(addresses[j] >> 1, 2);
+        
+        //-------------------------READING PART (HAVE TO CHECK THE DOCUMENTATION)-------------------------//
+        while (Wire.available() < 2); // Useful for multiple byte reading
+        unsigned char high_byte = Wire.read();
+        unsigned char low_byte = Wire.read();
+        unsigned int angle16 = high_byte;
+        angle16 <<= 8;
+        angle16 += low_byte;
+        //-------------------------READING PART (HAVE TO CHECK THE DOCUMENTATION)-------------------------//
+
+
+        // Store the sensor data in a SensorData object
+        SensorData sensorData;
+        sensorData.time = millis() - sensorTime;
+        sensorData.x = ...;
+        sensorData.y = ...;
+        sensorData.z = ...;
+        sensorData.accx = ...;
+        sensorData.accy = ...;
+        sensorData.accz = ...;
+
+        // Add the sensor data to the sensorArray
+        sensorArray[index++] = sensorData.time;
+        sensorArray[index++] = sensorData.x;
+        sensorArray[index++] = sensorData.y;
+        sensorArray[index++] = sensorData.z;
+        sensorArray[index++] = sensorData.accx;
+        sensorArray[index++] = sensorData.accy;
+        sensorArray[index++] = sensorData.accz;
+      }
+      else {
+        // In case of error, add -1 to the sensorArray for each attribute
+        for (int k = 0; k < 7; k++) {
+          sensorArray[index++] = -1;
+        }
       }
     }
   }
