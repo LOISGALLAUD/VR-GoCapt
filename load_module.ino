@@ -28,9 +28,6 @@ const int ffs2 = A1;
 const int ffs3 = A2;
 const int ffs4 = A3;
 
-// Variables for weight measurement
-unsigned long Time; // Variable to store the time
-
 //---------------------------------------------------------------------------
 /*FUNCTIONS*/
 
@@ -52,7 +49,6 @@ void setup() {
   pinMode(ffs2, INPUT);
   pinMode(ffs3, INPUT);
   pinMode(ffs4, INPUT);
-  Time = millis(); // Initialize Time variable
 }
 
 void loop() {

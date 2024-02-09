@@ -4,19 +4,26 @@
 #include <PWFusion_TCA9548A.h>
 #include <ArduinoJson.h>
 #include <SPI.h>
-//#include <SD.h>
 #include "SdFat.h"
 
-#define WIRE Wire
+
+//---------------------------------------------------------------------------
+/*DEFINES*/
+
+// SENSORS
 #define N_CHANNELS 5
-#define N_ADDRESS 4 //8 max
-#define UDP_TX_PACKET_MAX_SIZE 100
-#define CHIP_SELECT 5
+#define N_ADDRESS 4 // 8 max
 #define ADDR_BEGIN 1
+// CMPS12
 #define CMPS_GET_ANGLE16 2
 #define CMPS_DELAY 5
+// UDP & SD
+#define UDP_TX_PACKET_MAX_SIZE 100
+#define CHIP_SELECT 5
+// PINS
 #define REC_LED 13
 #define REC_BUTTON 33
+// LEDS
 #define ERR_LED 12
 #define LED1 14
 #define LED2 27
@@ -25,24 +32,14 @@
 //---------------------------------------------------------------------------
 /*PROTOTYPES*/
 
-void merge(JsonObject dest, JsonObjectConst src);
-void setupSensors();
-void connectToWiFi();
-void setupSDCard();
-void printDirectory(File dir);
-String getNextFileName();
-void readSensorData(JsonDocument &rawDataDocs);
-void readSensorData(int* sensorArray);
-void writeDataToFile(String fileName, String data);
-void readDataFromFile(String fileName);
 
 //---------------------------------------------------------------------------
 /*VARIABLES*/
 
-// State machine
+// STATE MACHINE
 int state = 0;
 
-// Record button
+// REC BUTTON
 int buttonTime = millis();
 struct Button {
 	const uint8_t pin;
@@ -51,38 +48,13 @@ struct Button {
 Button recButton = {
   .pin = REC_BUTTON,
   .pressed = false
-}
+};
 
-// testbench
-int time = millis();
-
-// SD setup
+// SD SETUP
 String fileName;
 SdFat sd;
 
-// Sensors setup
-TCA9548A i2cMux;
-byte addresses[N_ADDRESS] = {0xC0, 0xC2, 0xC4, 0xC6/*,
-                             0xC8, 0xCA, 0xCC, 0xCE*/}; // list of addresses from the CMPS sensors
-int channels[N_CHANNELS] = {CHAN0, CHAN1, CHAN2, CHAN3,
-                            CHAN4/*, CHAN5, CHAN6, CHAN7*/}; // CHAN(i) are defined in PWFusion_TCA9548A.h
-int validCMPSs[N_CHANNELS * N_ADDRESS] = {0};
-int sensorTime = millis();
-
-// Wi-Fi setup
-const char *ssid = "TP-Link_6A88";
-const char *password = "07867552";
-unsigned int serverPort = 8080;
-IPAddress server(172, 23, 5, 54);
-int status = WL_IDLE_STATUS;
-WiFiClient client;
-bool hasRemote = false;
-IPAddress remote;
-unsigned int remotePort;
-char packetBuffer[UDP_TX_PACKET_MAX_SIZE];
-WiFiUDP udp;
-
-// JSON documents setup
+// SENSOR SETUP
 type struct SensorData
 {
   int time;
@@ -92,21 +64,53 @@ type struct SensorData
   int accx;
   int accy;
   int accz;
-
 };
-JsonDocument rawDataDocs;
+const int ATTRIBUTES_SIZE = 7;
+TCA9548A i2cMux;
+byte addresses[N_ADDRESS] = {0xC0, 0xC2, 0xC4, 0xC6/*,
+                             0xC8, 0xCA, 0xCC, 0xCE*/}; // list of addresses from the CMPS sensors
+int channels[N_CHANNELS] = {CHAN0, CHAN1, CHAN2, CHAN3,
+                            CHAN4/*, CHAN5, CHAN6, CHAN7*/}; // CHAN(i) are defined in PWFusion_TCA9548A.h
+int validCMPSs[N_CHANNELS * N_ADDRESS] = {0};
+int sensorTime = millis();
 
-//---------------------------------------------------------------------------
+// WIFI SETUP
+const char *ssid = "TP-Link_6A88";
+const char *password = "07867552";
+unsigned int serverPort = 8080;
+IPAddress server(172, 23, 5, 54);
+int status = WL_IDLE_STATUS;
+WiFiClient client;
+WiFiUDP udp;
+
+// DATA GLOSSARY
+// Example of data glossary for 3 sensors
+const char *dataGlossary = "{
+    time: 0,
+    x1: 1,
+    y1: 2,
+    z1: 3,
+    accx1: 4,
+    accy1: 5,
+    accz1: 6,
+    x2: 7,
+    y2: 8,
+    z2: 9,
+    accx2: 10,
+    accy2: 11,
+    accz2: 12,
+    x3: 13,
+    y3: 14,
+    z3: 15,
+    accx3: 16,
+    accy3: 17,
+    accz3: 18,
+  }";
+
+//---------------------------------------------------------------------------//
 /*FUNCTIONS*/
 
-void merge(JsonObject dest, JsonObjectConst src)
-{
-  for (JsonPairConst kvp : src)
-  {
-    dest[kvp.key()] = kvp.value();
-  }
-}
-
+// SETUP FUNCTIONS
 void setupSensors()
 {
   int timer = 0;
@@ -117,9 +121,7 @@ void setupSensors()
     i2cMux.setChannel(channels[i]); // Select the current I2C channel using the multiplexer
     for (int j = 0; j < N_ADDRESS; j++)
     {
-      Serial.print("init ");
-      Serial.print(j + i * N_ADDRESS);
-      Serial.print("\n");
+      Serial.println("init ", j + i * N_ADDRESS);
 
       Wire.beginTransmission(addresses[j] >> 1); // starts communication with CMPS12
       Wire.write(ADDR_BEGIN);                    // Sends the register we wish to start reading from
@@ -129,11 +131,7 @@ void setupSensors()
       int angle8 = Wire.read();
       if (angle8 == -1)
       {
-        Serial.print("no CMPS (ch ");
-        Serial.print(i);
-        Serial.print(" adr ");
-        Serial.print(j);
-        Serial.print(")\n");
+        Serial.println("no CMPS (ch", i, "addr", j, ")");
       }
       else
       {
@@ -145,17 +143,16 @@ void setupSensors()
   }
 }
 
-void connectToWiFi()
+void setupWifi()
 {
-  Serial.println("");
-  Serial.print("\nAttempting to connect to WPA network...");
+  Serial.println("Attempting to connect to WPA network...");
   status = WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED)
   {
     Serial.print(".");
     delay(100);
   }
-  Serial.println("\nConnected to network");
+  Serial.println("Connected to network.");
 }
 
 void setupSDCard()
@@ -173,65 +170,12 @@ void setupSDCard()
   Serial.println("SD initialization done.");
 
   // Check list of files
-  Serial.println("\nList of files :");
-  printDirectory(sd.open("/",O_READ));
+  Serial.println("List of files :");
+  sd.open("/",O_READ).ls();
 }
 
-void writeDataToFile(String fileName, String data)
-{
-  /*
-  Create a file on the SD card and write the data in it
-
-  Only used when starting record mode
-  */
-  File dataFile = sd.open(fileName.c_str(), O_RDWR | O_CREAT | O_AT_END);
-  if (!dataFile)
-  {
-    Serial.println("Error opening file!");
-    return;
-  }
-  dataFile.print(data + "\n");
-  dataFile.close();
-}
-
-void appendDataToFile(String fileName, JsonDocument data)
-{
-  /*
-  Append the data to the existing file
-  */
-  File dataFile = sd.open(fileName.c_str(), O_WRITE | O_AT_END);
-  if (!dataFile)
-  {
-    Serial.println("Error opening file!");
-    digitalWrite(ERR_LED,HIGH);
-    return;
-  }
-  serializeJson(data, dataFile);
-  dataFile.close();
-}
-
-void readDataFromFile(String fileName)
-{
-  File dataFile = sd.open(fileName.c_str());
-  if (!dataFile)
-  {
-    Serial.println("Error opening file!");
-    return;
-  }
-  while (dataFile.available())
-  {
-    Serial.write(dataFile.read());
-  }
-  dataFile.close();
-}
-
-void printDirectory(File dir)
-{
-  dir.ls();
-}
-
-String getNextFileName()
-{
+// SD FUNCTIONS
+String getNextFileName() {
   int maxNumber = 0;
 
   File root = sd.open("/",O_READ);
@@ -270,57 +214,39 @@ String getNextFileName()
   return fileName;
 }
 
-void readSensorData(JsonDocument rawDataDocs) {
-  // Reading data from the sensors
-  JsonArray data = rawDataDocs.createNestedArray("data");
-  
-  // Iterate over each channel
-  for (int i = 0; i < N_CHANNELS; i++) {
-    JsonObject sensorObject = data.createNestedObject();
-    sensorObject["time"] = millis() - sensorTime;
+void createFile(String fileName)
+{
+  /*
+  Create a file on the SD card
+  */
 
-    i2cMux.setChannel(channels[i]);  // Selects the current I2C channel using the multiplexer
-    
-    // Iterate over each sensor
-    for (int j = 0; j < N_ADDRESS; j++) {
-      if (validCMPSs[j + i * N_ADDRESS] == 1) {
-        Wire.beginTransmission(addresses[j] >> 1);
-        Wire.write(CMPS_GET_ANGLE16);
-        Wire.endTransmission();
-        Wire.requestFrom(addresses[j] >> 1, 2);
-        
-        while (Wire.available() < 2); // Useful for multiple byte reading
-        unsigned char high_byte = Wire.read();
-        unsigned char low_byte = Wire.read();
-        unsigned int angle16 = high_byte;
-        angle16 <<= 8;
-        angle16 += low_byte;
-
-        // Store the sensor data in a SensorData object
-        SensorData sensorData;
-        sensorData.x = ...;
-        sensorData.y = ...;
-        sensorData.z = ...;
-
-        // Add the sensor data to the JSON document
-        JsonObject positionObject = sensorObject.createNestedObject("position");
-        positionObject["x"] = sensorData.x;
-        positionObject["y"] = sensorData.y;
-        positionObject["z"] = sensorData.z;
-      }
-      else {
-        // In case of error, add an error message to the sensor data
-        JsonObject positionObject = sensorObject.createNestedObject("position");
-        positionObject["x"] = -1;
-        positionObject["y"] = -1;
-        positionObject["z"] = -1;
-      }
-    }
+  File dataFile = sd.open(fileName.c_str(), O_RDWR | O_CREAT | O_AT_END);
+  if (!dataFile)
+  {
+    Serial.println("Error opening file!");
+    return;
   }
-  return rawDataDocs;
+  dataFile.close();
 }
 
-void readSensorData(int* sensorArray) {
+void appendDataToFile(String fileName, JsonDocument data)
+{
+  /*
+  Append the data to the existing file
+  */
+  File dataFile = sd.open(fileName.c_str(), O_WRITE | O_AT_END);
+  if (!dataFile)
+  {
+    Serial.println("Error opening file!");
+    digitalWrite(ERR_LED,HIGH);
+    return;
+  }
+  serializeJson(data, dataFile);
+  dataFile.close();
+}
+
+// SENSOR FUNCTIONS
+void readSensorData(int *sensorArray) {
   int index = 0;
   
   // Iterate over each channel
@@ -365,7 +291,7 @@ void readSensorData(int* sensorArray) {
       }
       else {
         // In case of error, add -1 to the sensorArray for each attribute
-        for (int k = 0; k < 7; k++) {
+        for (int k = 0; k < ATTRIBUTES_SIZE; k++) {
           sensorArray[index++] = -1;
         }
       }
@@ -373,139 +299,79 @@ void readSensorData(int* sensorArray) {
   }
 }
 
-void readAndWriteData()
-{
-  // int packetSize = udp.parsePacket();         // Check if there's an incoming udp packet
+void sendToServer(int* data) {
+  int packetSize = udp.parsePacket();
+  IPAddress remote;
+  unsigned int remotePort;
+  char packetBuffer[UDP_TX_PACKET_MAX_SIZE];
 
-  // // If an incoming packet is detected
-  // if (packetSize)
-  // {
-  //   Serial.print("Received packet of size ");
-  //   Serial.println(packetSize);
-  //   Serial.print("From ");
-  //   remote = udp.remoteIP();         // Get the IP address of the sender
-  //   remotePort = atoi(packetBuffer); // Parse the port number from the packet (Note: There's a potential issue here, see below)
-  //   hasRemote = true;
-
-  //   for (int i = 0; i < 4; i++)
-  //   {
-  //     Serial.print(remote[i], DEC); // Print each part of the sender's IP address
-  //     if (i < 3)
-  //     {
-  //       Serial.print(".");
-  //     }
-  //   }
-
-  //   Serial.print(", port");
-  //   Serial.print(remotePort);                       // Print the sender's port number
-  //   udp.read(packetBuffer, UDP_TX_PACKET_MAX_SIZE); // Read the packet data into packetBuffer
-  //   Serial.print("Contents");
-  //   Serial.println(atoi(packetBuffer));
-  // }
-
-  // Reading data from the sensors
-  for (int i = 0; i < N_CHANNELS; i++)
+  // If an incoming packet is detected
+  if (packetSize)
   {
-    i2cMux.setChannel(channels[i]); // Select the current I2C channel using the multiplexer
-    for (int j = 0; j < N_ADDRESS; j++)
-    {
-      if (validCMPSs[j + i * N_ADDRESS] == 1)
-      {
-        Wire.beginTransmission(addresses[j] >> 1); // starts communication with CMPS12
-        Wire.write(CMPS_GET_ANGLE16);                    // Sends the register we wish to start reading from
-        Wire.endTransmission();
-        Wire.requestFrom(addresses[j] >> 1, 2);
+    remote = udp.remoteIP();
+    udp.read(packetBuffer, UDP_TX_PACKET_MAX_SIZE);
+    udp.beginPacket(remote, atoi(packetBuffer));
 
-        while (Wire.available() < 2); //useful for multiple byte reading
-        unsigned char high_byte = Wire.read();
-        unsigned char low_byte = Wire.read();
-        unsigned int angle16 = high_byte;                // Calculate 16 bit angle
-        angle16 <<= 8;
-        angle16 += low_byte;
-        rawDataDocs["a" + String(j) + "c" + String(i) + "time"] = millis() - sensorTime;
-        rawDataDocs["a" + String(j) + "c" + String(i) + "angle16"] = angle16;        // Read the sensor data and assign it to the JSON document
-      }
-      else
-      {
-        rawDataDocs["a" + String(j) + "c" + String(i) + "time"] = millis() - sensorTime;
-        rawDataDocs["a" + String(j) + "c" + String(i) + "angle16"] = -1;           // Error message 
-      }
-    }
+    String sendBuffer;
+    serializeJson(data, sendBuffer);
+    udp.print(sendBuffer);
+    udp.endPacket();
   }
-
-  // // Sending data to the server
-  // if (hasRemote)
-  // {
-  //   // If a remote connection has been established
-  //   udp.beginPacket(remote, atoi(packetBuffer)); // Begin udp packet transmission to the remote IP and port (Note: There's a potential issue here, see below)
-  //   String sendBuffer;
-  //   serializeJson(rawDataDocs,sendBuffer);
-  //   udp.print(sendBuffer); // Send the sensor data for each channel
-  //   udp.endPacket(); // End the udp packet transmission
-  // }
-
-  // Writing data to the SD card
-  appendDataToFile(fileName, rawDataDocs);
-
-  // Simulation
-  delay(CMPS_DELAY);
 }
 
-void stateMachine()
-{
-  if (recButton.pressed && !digitalRead(recButton.PIN))
-  {
-    if (millis() - buttonTime < 800)
-    {
-      setIndicatorLeds(1);
-    }
-    else if (millis() - buttonTime < 1800)
-    {
-      setIndicatorLeds(2);
-    }
-    else if (millis() - buttonTime < 2800)
-    {
-      setIndicatorLeds(3);
-    }
-    else
-    {
+// STATE MACHINE FUNCTIONS
+void stateMachine() {
+  if (recButton.pressed && !digitalRead(recButton.PIN)) {
+    unsigned long currentTime = millis();
+    unsigned long elapsedTime = currentTime - buttonTime;
+
+    int count;
+    if (elapsedTime < 800) {
+      count = 1;
+    } else if (elapsedTime < 1800) {
+      count = 2;
+    } else if (elapsedTime < 2800) {
+      count = 3;
+    } else {
       startAcquisition();
+      return; // Exit early if startAcquisition() is called
     }
-  }
-  else
-  {
+    setIndicatorLeds(count);
+  } else {
     resetLeds();
   }
 }
 
-void setIndicatorLeds(int count)
-{
+void setIndicatorLeds(int count) {
   digitalWrite(LED1, HIGH);
-  digitalWrite(LED2, count > 1 ? HIGH : LOW);
-  digitalWrite(LED3, count > 2 ? HIGH : LOW);
+  digitalWrite(LED2, count > 1);
+  digitalWrite(LED3, count > 2);
 }
 
-void startAcquisition()
-{
-  resetLeds();
-  if (state == 0)
-  {
-    sensorTime = millis();
-    fileName = getNextFileName();
-    writeDataToFile(fileName, fileName);
-  }
-  state = !state;
-  recButton.pressed = false;
-}
-
-void resetLeds()
-{
+void resetLeds() {
   digitalWrite(LED1, LOW);
   digitalWrite(LED2, LOW);
   digitalWrite(LED3, LOW);
 }
 
-//---------------------------------------------------------------------------
+void startAcquisition() {
+  resetLeds();
+  if (state == 0) {
+    sensorTime = millis();
+
+    // Send the glossary to the server
+    sendToServer(dataGlossary);
+
+    // Create a new file in SD card
+    fileName = getNextFileName();
+    createFile(fileName);
+  }
+  state = !state;
+  recButton.pressed = false;
+}
+
+
+//---------------------------------------------------------------------------//
 /* INTERRUPTS */
 
 void IRAM_ATTR isr_rec(){
@@ -513,12 +379,13 @@ void IRAM_ATTR isr_rec(){
   buttonTime = millis();
 }
 
-//---------------------------------------------------------------------------
+//---------------------------------------------------------------------------//
 /*MAIN*/
 
 void setup()
 {
   Serial.begin(115200);
+
   // OUTPUTS AND INPUTS
   pinMode(REC_LED,OUTPUT);
   pinMode(ERR_LED,OUTPUT);
@@ -527,44 +394,43 @@ void setup()
   pinMode(LED3,OUTPUT);
   pinMode(REC_BUTTON,INPUT_PULLUP);
 
-  digitalWrite(LED3,HIGH);
-  digitalWrite(ERR_LED,HIGH);
+  //----------------------------------STARTING SETUP----------------------------------//
+  digitalWrite(LED3, HIGH);
+  digitalWrite(ERR_LED, HIGH);
 
-  //connectToWiFi();
+  // Setup
   setupSDCard();
   setupSensors();
-  //udp.begin(serverPort);
-  Serial.println("IP Address Microcontroller:");
-  //Serial.println(WiFi.localIP());
+  setupWifi();
+  udp.begin(serverPort);
+  Serial.println("UDP server started at port " + String(serverPort));
+  Serial.println("IP Address Microcontroller:", WiFi.localIP());
 
-  // time setup
-  Serial.print("time after setup:");Serial.println(millis() - time);
-  time = millis();
+  // LEDS SETUP STATE
+  digitalWrite(LED3, LOW);
+  digitalWrite(ERR_LED, LOW);
 
-  digitalWrite(LED3,LOW);
-  digitalWrite(ERR_LED,LOW);
+  //-----------------------------------ENDING SETUP-----------------------------------//
 
-  // Interrupts
+  // INTERRUPTS
   attachInterrupt(recButton.PIN, isr_rec, FALLING);
 }
 
 void loop()
 {
-  // state Machine
   stateMachine();
 
   // Output Logic
   if (state == 1)
   {
-    readAndWriteData();
+    int *sensorData[N_CHANNELS * N_ADDRESS * ATTRIBUTES_SIZE];
+    readSensorData(sensorData);
+    sendSensorDataToServer(sensorData);
+    appendDataToFile(fileName, sensorData);
     digitalWrite(REC_LED, HIGH);
   }
   else
   {
     digitalWrite(REC_LED, LOW);
   }
-
-  // Debugging (print the loop total execution time. It must be under 20ms for 50fps.)
-  Serial.println(millis() - time);
-  time = millis();
 }
