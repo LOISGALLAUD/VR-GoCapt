@@ -11,13 +11,43 @@
 
 ## Description
 
-<!-- <img src="images/readme/global_system.png" width="100%" align="center" alt="README.md" title="README.md"> -->
-
 _coming soon_
 
 ## Data Extraction
 
-_coming soon_
+The data is sent to a router using UDP protocol.
+In the mean time, all the data is saved on an SD card in the json format. The data is saved in the following format:
+
+```json
+{
+    [
+        "name": "headers",
+        "data": {
+            "time": 0,
+            "---": 1,
+            "---": 2,
+            "---": 3,
+            "---": 4,
+            ...
+        }
+    ],
+    [
+        "name": "sensors",
+        "data": {
+            [
+                <time>,
+                <sensor_i_x>,
+                <sensor_i_y>,
+                <sensor_i_z>,
+                <sensor_i_accx>,
+                <sensor_i_accy>,
+                <sensor_i_accz>,
+                ...
+            ]
+        }
+    ]
+}
+```
 
 ## Contributing
 
