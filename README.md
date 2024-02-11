@@ -19,10 +19,13 @@ Le projet consiste à la réalisation d’un système de capteurs **amovibles** 
 
 Ce système permet à un individu travaillant en milieu industriel d'améliorer la qualité de ses gestes à partir d’une récupération de données via un support externe et en temps réel.
 
-<center>
-    <img alt="squelette" src="images/cornes.png" width="33%" /> 
-    <img alt="squelette" src="images/pieuvre.png" width="33%" height="100%" /> 
-</center>
+<div align="center" style="display: flex; justify-content: center; align-items: center; flex-direction:row">
+  <div style="flex: 1;">
+      <img src="images/cornes.png" alt="Télécom Physique Strasbourg" style="width: 45%; height: 12rem;">
+      <img src="images/pieuvre.png" alt="Strasbourg location" style="width: 45%; height: 12rem;">
+    <p>Analayse du besoin du système</p>
+  </div>
+</div>
 
 ## Data Extraction
 
