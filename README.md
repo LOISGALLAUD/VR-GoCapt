@@ -23,7 +23,7 @@ Ce système permet à un individu travaillant en milieu industriel d'améliorer 
   <div style="flex: 1;">
       <img src="images/cornes.png" alt="Télécom Physique Strasbourg" style="width: 45%; height: 12rem;">
       <img src="images/pieuvre.png" alt="Strasbourg location" style="width: 45%; height: 12rem;">
-    <p>Analayse du besoin du système</p>
+    <p>Analyse du besoin du système</p>
   </div>
 </div>
 
@@ -42,21 +42,21 @@ In the mean time, all the data is saved on an SD card in the json format. The da
             "---": 2,
             "---": 3,
             "---": 4,
-            ...
+            "..."
         }
     ],
     [
         "name": "sensors",
         "data": {
             [
-                <time>,
-                <sensor_i_x>,
-                <sensor_i_y>,
-                <sensor_i_z>,
-                <sensor_i_accx>,
-                <sensor_i_accy>,
-                <sensor_i_accz>,
-                ...
+                "<time>",
+                "<sensor_i_x>",
+                "<sensor_i_y>",
+                "<sensor_i_z>",
+                "<sensor_i_accx>",
+                "<sensor_i_accy>",
+                "<sensor_i_accz>",
+                "..."
             ]
         }
     ]
