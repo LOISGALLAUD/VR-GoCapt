@@ -13,7 +13,7 @@
 
 Le projet consiste à la réalisation d’un système de capteurs **amovibles** de repérage des positions de différentes parties du corps afin d'en faire une simulation en réalité virtuelle.
 
-<div align="center" style="display: flex; justify-content: center; align-items: center; flex-direction:row">
+<div align="center" style="display: flex; justify-content: center; align-items: center; flex-direction:row;">
     <img alt="squelette" src="images/squelette.png" width="50%" /> 
 </div>
 
@@ -21,8 +21,8 @@ Ce système permet à un individu travaillant en milieu industriel d'améliorer 
 
 <div align="center" style="display: flex; justify-content: center; align-items: center; flex-direction:row">
   <div style="flex: 1;">
-      <img src="images/cornes.png" alt="Télécom Physique Strasbourg" style="width: 45%; height: 15rem;">
-      <img src="images/pieuvre.png" alt="Strasbourg location" style="width: 45%; height: 15rem;">
+      <img src="images/cornes.png" alt="Télécom Physique Strasbourg" style="width: 45%;">
+      <img src="images/pieuvre.png" alt="Strasbourg location" style="width: 53%;">
     <p>Analyse du besoin du système</p>
   </div>
 </div>
