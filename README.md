@@ -21,8 +21,8 @@ Ce système permet à un individu travaillant en milieu industriel d'améliorer 
 
 <div align="center" style="display: flex; justify-content: center; align-items: center; flex-direction:row">
   <div style="flex: 1;">
-      <img src="images/cornes.png" alt="Télécom Physique Strasbourg" style="width: 45%; height: 12rem;">
-      <img src="images/pieuvre.png" alt="Strasbourg location" style="width: 45%; height: 12rem;">
+      <img src="images/cornes.png" alt="Télécom Physique Strasbourg" style="width: 45%; height: 15rem;">
+      <img src="images/pieuvre.png" alt="Strasbourg location" style="width: 45%; height: 15rem;">
     <p>Analyse du besoin du système</p>
   </div>
 </div>
