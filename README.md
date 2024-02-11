@@ -13,9 +13,9 @@
 
 Le projet consiste à la réalisation d’un système de capteurs **amovibles** de repérage des positions de différentes parties du corps afin d'en faire une simulation en réalité virtuelle.
 
-<center>
+<div align="center" style="display: flex; justify-content: center; align-items: center; flex-direction:row">
     <img alt="squelette" src="images/squelette.png" width="50%" /> 
-</center>
+</div>
 
 Ce système permet à un individu travaillant en milieu industriel d'améliorer la qualité de ses gestes à partir d’une récupération de données via un support externe et en temps réel.
 
