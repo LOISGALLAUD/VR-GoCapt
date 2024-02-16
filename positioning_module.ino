@@ -16,6 +16,7 @@
 #define ADDR_BEGIN 1
 // CMPS12
 #define CMPS_GET_ANGLE16 2
+#define CMPS_RAW9 6
 #define CMPS_DELAY 5
 // UDP & SD
 #define UDP_TX_PACKET_MAX_SIZE 100
@@ -42,8 +43,8 @@ int state = 0;
 // REC BUTTON
 int buttonTime = millis();
 struct Button {
-	const uint8_t pin;
-	bool pressed;
+const uint8_t pin;
+bool pressed;
 };
 Button recButton = {
   .pin = REC_BUTTON,
@@ -55,17 +56,20 @@ String fileName;
 SdFat sd;
 
 // SENSOR SETUP
-type struct SensorData
+struct SensorData
 {
   int time;
-  int x;
-  int y;
-  int z;
+  int magx;
+  int magy;
+  int magz;
   int accx;
   int accy;
   int accz;
+  int gyrx;
+  int gyry;
+  int gyrz;
 };
-const int ATTRIBUTES_SIZE = 7;
+const int ATTRIBUTES_SIZE = 9;
 TCA9548A i2cMux;
 byte addresses[N_ADDRESS] = {0xC0, 0xC2, 0xC4, 0xC6/*,
                              0xC8, 0xCA, 0xCC, 0xCE*/}; // list of addresses from the CMPS sensors
@@ -85,27 +89,7 @@ WiFiUDP udp;
 
 // DATA GLOSSARY
 // Example of data glossary for 3 sensors
-const char *dataGlossary = "{
-    time: 0,
-    x1: 1,
-    y1: 2,
-    z1: 3,
-    accx1: 4,
-    accy1: 5,
-    accz1: 6,
-    x2: 7,
-    y2: 8,
-    z2: 9,
-    accx2: 10,
-    accy2: 11,
-    accz2: 12,
-    x3: 13,
-    y3: 14,
-    z3: 15,
-    accx3: 16,
-    accy3: 17,
-    accz3: 18,
-  }";
+const char *dataGlossary = "['time', 'magx', 'magy', 'magz', 'accx', 'accy', 'accz', 'gyrx', 'gyry', 'gyrz']";
 
 //---------------------------------------------------------------------------//
 /*FUNCTIONS*/
@@ -121,7 +105,8 @@ void setupSensors()
     i2cMux.setChannel(channels[i]); // Select the current I2C channel using the multiplexer
     for (int j = 0; j < N_ADDRESS; j++)
     {
-      Serial.println("init ", j + i * N_ADDRESS);
+      Serial.print("init ");
+      Serial.println(j + i * N_ADDRESS);
 
       Wire.beginTransmission(addresses[j] >> 1); // starts communication with CMPS12
       Wire.write(ADDR_BEGIN);                    // Sends the register we wish to start reading from
@@ -131,7 +116,11 @@ void setupSensors()
       int angle8 = Wire.read();
       if (angle8 == -1)
       {
-        Serial.println("no CMPS (ch", i, "addr", j, ")");
+        Serial.println("no CMPS (ch");
+        Serial.print(i);
+        Serial.print("addr");
+        Serial.print(j);
+        Serial.print(")");
       }
       else
       {
@@ -256,38 +245,44 @@ void readSensorData(int *sensorArray) {
     for (int j = 0; j < N_ADDRESS; j++) {
       if (validCMPSs[j + i * N_ADDRESS] == 1) {
         Wire.beginTransmission(addresses[j] >> 1);
-        Wire.write(CMPS_GET_ANGLE16);
+        Wire.write(CMPS_RAW9);
         Wire.endTransmission();
-        Wire.requestFrom(addresses[j] >> 1, 2);
+        Wire.requestFrom(addresses[j] >> 1, ATTRIBUTES_SIZE);
         
         //-------------------------READING PART (HAVE TO CHECK THE DOCUMENTATION)-------------------------//
-        while (Wire.available() < 2); // Useful for multiple byte reading
-        unsigned char high_byte = Wire.read();
-        unsigned char low_byte = Wire.read();
-        unsigned int angle16 = high_byte;
-        angle16 <<= 8;
-        angle16 += low_byte;
+        while (Wire.available() < ATTRIBUTES_SIZE); // Useful for multiple byte reading
+        // unsigned char high_byte = Wire.read();
+        // unsigned char low_byte = Wire.read();
+        // unsigned int angle16 = high_byte;
+        // angle16 <<= 8;
+        // angle16 += low_byte;
         //-------------------------READING PART (HAVE TO CHECK THE DOCUMENTATION)-------------------------//
 
 
         // Store the sensor data in a SensorData object
         SensorData sensorData;
         sensorData.time = millis() - sensorTime;
-        sensorData.x = ...;
-        sensorData.y = ...;
-        sensorData.z = ...;
-        sensorData.accx = ...;
-        sensorData.accy = ...;
-        sensorData.accz = ...;
+        sensorData.magx = Wire.read();
+        sensorData.magy = Wire.read();
+        sensorData.magz = Wire.read();
+        sensorData.accx = Wire.read();
+        sensorData.accy = Wire.read();
+        sensorData.accz = Wire.read();
+        sensorData.gyrx = Wire.read();
+        sensorData.gyry = Wire.read();
+        sensorData.gyrz = Wire.read();
 
         // Add the sensor data to the sensorArray
         sensorArray[index++] = sensorData.time;
-        sensorArray[index++] = sensorData.x;
-        sensorArray[index++] = sensorData.y;
-        sensorArray[index++] = sensorData.z;
+        sensorArray[index++] = sensorData.magx;
+        sensorArray[index++] = sensorData.magy;
+        sensorArray[index++] = sensorData.magz;
         sensorArray[index++] = sensorData.accx;
         sensorArray[index++] = sensorData.accy;
         sensorArray[index++] = sensorData.accz;
+        sensorArray[index++] = sensorData.gyrx;
+        sensorArray[index++] = sensorData.gyry;
+        sensorArray[index++] = sensorData.gyrz;
       }
       else {
         // In case of error, add -1 to the sensorArray for each attribute
@@ -313,7 +308,7 @@ void sendToServer(int* data) {
     udp.beginPacket(remote, atoi(packetBuffer));
 
     String sendBuffer;
-    serializeJson(data, sendBuffer);
+    serializeJson(*data, sendBuffer);
     udp.print(sendBuffer);
     udp.endPacket();
   }
