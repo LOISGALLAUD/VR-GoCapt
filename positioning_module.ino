@@ -56,19 +56,6 @@ String fileName;
 SdFat sd;
 
 // SENSOR SETUP
-struct SensorData
-{
-  int time;
-  int magx;
-  int magy;
-  int magz;
-  int accx;
-  int accy;
-  int accz;
-  int gyrx;
-  int gyry;
-  int gyrz;
-};
 const int ATTRIBUTES_SIZE = 9;
 TCA9548A i2cMux;
 byte addresses[N_ADDRESS] = {0xC0, 0xC2, 0xC4, 0xC6/*,
@@ -258,31 +245,17 @@ void readSensorData(int *sensorArray) {
         // angle16 += low_byte;
         //-------------------------READING PART (HAVE TO CHECK THE DOCUMENTATION)-------------------------//
 
-
-        // Store the sensor data in a SensorData object
-        SensorData sensorData;
-        sensorData.time = millis() - sensorTime;
-        sensorData.magx = Wire.read();
-        sensorData.magy = Wire.read();
-        sensorData.magz = Wire.read();
-        sensorData.accx = Wire.read();
-        sensorData.accy = Wire.read();
-        sensorData.accz = Wire.read();
-        sensorData.gyrx = Wire.read();
-        sensorData.gyry = Wire.read();
-        sensorData.gyrz = Wire.read();
-
         // Add the sensor data to the sensorArray
-        sensorArray[index++] = sensorData.time;
-        sensorArray[index++] = sensorData.magx;
-        sensorArray[index++] = sensorData.magy;
-        sensorArray[index++] = sensorData.magz;
-        sensorArray[index++] = sensorData.accx;
-        sensorArray[index++] = sensorData.accy;
-        sensorArray[index++] = sensorData.accz;
-        sensorArray[index++] = sensorData.gyrx;
-        sensorArray[index++] = sensorData.gyry;
-        sensorArray[index++] = sensorData.gyrz;
+        sensorArray[index++] = millis() - sensorTime;
+        sensorArray[index++] = Wire.read();
+        sensorArray[index++] = Wire.read();
+        sensorArray[index++] = Wire.read();
+        sensorArray[index++] = Wire.read();
+        sensorArray[index++] = Wire.read();
+        sensorArray[index++] = Wire.read();
+        sensorArray[index++] = Wire.read();
+        sensorArray[index++] = Wire.read();
+        sensorArray[index++] = Wire.read();
       }
       else {
         // In case of error, add -1 to the sensorArray for each attribute
