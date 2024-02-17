@@ -33,6 +33,30 @@
 //---------------------------------------------------------------------------
 /*PROTOTYPES*/
 
+// SETUP FUNCTIONS
+void setupSensors();
+void setupWifi();
+void setupSDCard();
+
+// SD FUNCTIONS
+String getNextFileName();
+void createFile(String fileName);
+void appendDataToFile(String fileName, int* data, size_t dataSize);
+
+// SENSOR FUNCTIONS
+unsigned int readTwoBytesAsUInt();
+void readSensorData(int *sensorArray);
+void sendToServer(int* data);
+void sendToServer(const char* data);
+
+// STATE MACHINE FUNCTIONS
+void stateMachine();
+void setIndicatorLeds(int count);
+void resetLeds();
+void startAcquisition();
+
+// INTERRUPTS
+void IRAM_ATTR isr_rec();
 
 //---------------------------------------------------------------------------
 /*VARIABLES*/
@@ -205,7 +229,7 @@ void createFile(String fileName)
   dataFile.close();
 }
 
-void appendDataToFile(String fileName, JsonDocument data)
+void appendDataToFile(String fileName, int* data, size_t dataSize)
 {
   /*
   Append the data to the existing file
@@ -217,11 +241,23 @@ void appendDataToFile(String fileName, JsonDocument data)
     digitalWrite(ERR_LED,HIGH);
     return;
   }
-  serializeJson(data, dataFile);
+  // serializeJson(data, dataFile);
+  dataFile.write(data, dataSize * sizeof(int)); //can cause prbls due to SdFat
   dataFile.close();
 }
 
 // SENSOR FUNCTIONS
+unsigned int readTwoBytesAsUInt() {
+  unsigned char high_byte = Wire.read();  // Read MSB
+  unsigned char low_byte = Wire.read();   // Read LSB
+  
+  unsigned int result = high_byte;
+  result = result << 8;
+  result |= low_byte;
+  
+  return result;
+}
+
 void readSensorData(int *sensorArray) {
   int index = 0;
   
@@ -234,12 +270,15 @@ void readSensorData(int *sensorArray) {
         Wire.beginTransmission(addresses[j] >> 1);
         Wire.write(CMPS_RAW9);
         Wire.endTransmission();
-        Wire.requestFrom(addresses[j] >> 1, ATTRIBUTES_SIZE);
+        Wire.requestFrom(addresses[j] >> 1, 18);
         
         //-------------------------READING PART (HAVE TO CHECK THE DOCUMENTATION)-------------------------//
-        while (Wire.available() < ATTRIBUTES_SIZE); // Useful for multiple byte reading
+        while (Wire.available() < 18); // Useful for multiple byte reading
+        
+        angle16 = readTwoBytesAsUInt();
+
         // unsigned char high_byte = Wire.read();
-        // unsigned char low_byte = Wire.read();
+        // unsigned char low_byte = Wire.read();  //A REDIGER EN FONCTION
         // unsigned int angle16 = high_byte;
         // angle16 <<= 8;
         // angle16 += low_byte;
@@ -279,17 +318,31 @@ void sendToServer(int* data) {
     remote = udp.remoteIP();
     udp.read(packetBuffer, UDP_TX_PACKET_MAX_SIZE);
     udp.beginPacket(remote, atoi(packetBuffer));
+    udp.print(*data);
+    udp.endPacket();
+  }
+}
 
-    String sendBuffer;
-    serializeJson(*data, sendBuffer);
-    udp.print(sendBuffer);
+void sendToServer(const char* data) {
+  int packetSize = udp.parsePacket();
+  IPAddress remote;
+  unsigned int remotePort;
+  char packetBuffer[UDP_TX_PACKET_MAX_SIZE];
+
+  // If an incoming packet is detected
+  if (packetSize)
+  {
+    remote = udp.remoteIP();
+    udp.read(packetBuffer, UDP_TX_PACKET_MAX_SIZE);
+    udp.beginPacket(remote, atoi(packetBuffer));
+    udp.print(*data);
     udp.endPacket();
   }
 }
 
 // STATE MACHINE FUNCTIONS
 void stateMachine() {
-  if (recButton.pressed && !digitalRead(recButton.PIN)) {
+  if (recButton.pressed && !digitalRead(recButton.pin)) {
     unsigned long currentTime = millis();
     unsigned long elapsedTime = currentTime - buttonTime;
 
@@ -372,7 +425,7 @@ void setup()
   setupWifi();
   udp.begin(serverPort);
   Serial.println("UDP server started at port " + String(serverPort));
-  Serial.println("IP Address Microcontroller:", WiFi.localIP());
+  Serial.println("IP Address Microcontroller:" + String(WiFi.localIP()));
 
   // LEDS SETUP STATE
   digitalWrite(LED3, LOW);
@@ -381,7 +434,7 @@ void setup()
   //-----------------------------------ENDING SETUP-----------------------------------//
 
   // INTERRUPTS
-  attachInterrupt(recButton.PIN, isr_rec, FALLING);
+  attachInterrupt(recButton.pin, isr_rec, FALLING);
 }
 
 void loop()
@@ -392,9 +445,9 @@ void loop()
   if (state == 1)
   {
     int *sensorData[N_CHANNELS * N_ADDRESS * ATTRIBUTES_SIZE];
-    readSensorData(sensorData);
-    sendSensorDataToServer(sensorData);
-    appendDataToFile(fileName, sensorData);
+    readSensorData(*sensorData);
+    sendToServer(*sensorData);
+    appendDataToFile(fileName, *sensorData, N_CHANNELS * N_ADDRESS * ATTRIBUTES_SIZE);
     digitalWrite(REC_LED, HIGH);
   }
   else
