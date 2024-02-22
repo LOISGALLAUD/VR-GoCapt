@@ -38,11 +38,23 @@ In the mean time, all the data is saved on an SD card in the json format. The da
         "name": "headers",
         "data": {
             "time": 0,
-            "---": 1,
-            "---": 2,
-            "---": 3,
-            "---": 4,
-            "..."
+            "tete": 1,
+            "dos": 2,
+            "epaule_droite": 3,
+            "bras_droit": 4,
+            "avant_bras_droit": 5,
+            "main_droite": 6,
+            "epaule_gauche": 7,
+            "bras_gauche": 8,
+            "avant_bras_gauche": 9,
+            "main_gauche": 10,
+            "ceinture": 11,
+            "cuisse_droite": 12,
+            "tibia_droit": 13,
+            "pied_droit": 14,
+            "cuisse_gauche": 15,
+            "tibia_gauche": 16,
+            "pied_gauche": 17,
         }
     ],
     [

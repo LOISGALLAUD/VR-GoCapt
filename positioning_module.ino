@@ -45,7 +45,7 @@ void appendDataToFile(String fileName, int* data, size_t dataSize);
 
 // SENSOR FUNCTIONS
 unsigned int readTwoBytesAsUInt();
-void readSensorData(int *sensorArray);
+void readSensorData(int* sensorArray);
 void sendToServer(int* data);
 void sendToServer(const char* data);
 
@@ -117,7 +117,7 @@ void setupSensors()
     for (int j = 0; j < N_ADDRESS; j++)
     {
       Serial.print("init ");
-      Serial.println(j + i * N_ADDRESS);
+      Serial.print(j + i * N_ADDRESS);
 
       Wire.beginTransmission(addresses[j] >> 1); // starts communication with CMPS12
       Wire.write(ADDR_BEGIN);                    // Sends the register we wish to start reading from
@@ -127,16 +127,16 @@ void setupSensors()
       int angle8 = Wire.read();
       if (angle8 == -1)
       {
-        Serial.println("no CMPS (ch");
+        Serial.print(" no CMPS (ch");
         Serial.print(i);
         Serial.print("addr");
         Serial.print(j);
-        Serial.print(")");
+        Serial.println(")");
       }
       else
       {
         validCMPSs[j + i * N_ADDRESS] = 1;
-        Serial.print("Angle8 = ");
+        Serial.print(" Angle8 = ");
         Serial.println(angle8, DEC);
       }
     }
@@ -258,12 +258,12 @@ unsigned int readTwoBytesAsUInt() {
   return result;
 }
 
-void readSensorData(int *sensorArray) {
+void readSensorData(int* sensorArray) {
   int index = 0;
   
   // Iterate over each channel
   for (int i = 0; i < N_CHANNELS; i++) {
-    
+    i2cMux.setChannel(channels[i]);
     // Iterate over each sensor
     for (int j = 0; j < N_ADDRESS; j++) {
       if (validCMPSs[j + i * N_ADDRESS] == 1) {
@@ -275,7 +275,7 @@ void readSensorData(int *sensorArray) {
         //-------------------------READING PART (HAVE TO CHECK THE DOCUMENTATION)-------------------------//
         while (Wire.available() < 18); // Useful for multiple byte reading
         
-        angle16 = readTwoBytesAsUInt();
+        // unsigned int angle16 = readTwoBytesAsUInt();
 
         // unsigned char high_byte = Wire.read();
         // unsigned char low_byte = Wire.read();  //A REDIGER EN FONCTION
@@ -286,15 +286,15 @@ void readSensorData(int *sensorArray) {
 
         // Add the sensor data to the sensorArray
         sensorArray[index++] = millis() - sensorTime;
-        sensorArray[index++] = Wire.read();
-        sensorArray[index++] = Wire.read();
-        sensorArray[index++] = Wire.read();
-        sensorArray[index++] = Wire.read();
-        sensorArray[index++] = Wire.read();
-        sensorArray[index++] = Wire.read();
-        sensorArray[index++] = Wire.read();
-        sensorArray[index++] = Wire.read();
-        sensorArray[index++] = Wire.read();
+        sensorArray[index++] = readTwoBytesAsUInt();
+        sensorArray[index++] = readTwoBytesAsUInt();
+        sensorArray[index++] = readTwoBytesAsUInt();
+        sensorArray[index++] = readTwoBytesAsUInt();
+        sensorArray[index++] = readTwoBytesAsUInt();
+        sensorArray[index++] = readTwoBytesAsUInt();
+        sensorArray[index++] = readTwoBytesAsUInt();
+        sensorArray[index++] = readTwoBytesAsUInt();
+        sensorArray[index++] = readTwoBytesAsUInt();
       }
       else {
         // In case of error, add -1 to the sensorArray for each attribute
@@ -440,14 +440,14 @@ void setup()
 void loop()
 {
   stateMachine();
-
+  
   // Output Logic
   if (state == 1)
   {
-    int *sensorData[N_CHANNELS * N_ADDRESS * ATTRIBUTES_SIZE];
-    readSensorData(*sensorData);
-    sendToServer(*sensorData);
-    appendDataToFile(fileName, *sensorData, N_CHANNELS * N_ADDRESS * ATTRIBUTES_SIZE);
+    int sensorData[N_CHANNELS * N_ADDRESS * ATTRIBUTES_SIZE];
+    readSensorData(sensorData);
+    sendToServer(sensorData);
+    appendDataToFile(fileName, sensorData, N_CHANNELS * N_ADDRESS * ATTRIBUTES_SIZE);
     digitalWrite(REC_LED, HIGH);
   }
   else
