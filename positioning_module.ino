@@ -44,9 +44,10 @@ void createFile(String fileName);
 void appendDataToFile(String fileName, int* data, size_t dataSize);
 
 // SENSOR FUNCTIONS
-unsigned int readTwoBytesAsUInt();
+int readTwoBytesAsInt();
 void readSensorData(int* sensorArray);
 void sendToServer(int* data);
+void sendToServer(int* data, int Size);
 void sendToServer(const char* data);
 
 // STATE MACHINE FUNCTIONS
@@ -92,10 +93,10 @@ int sensorTime = millis();
 // WIFI SETUP
 const char *ssid = "TP-Link_6A88";
 const char *password = "07867552";
-unsigned int serverPort = 8080;
-IPAddress server(172, 23, 5, 54);
+unsigned int serverPort = 8080; //Port utilisé par configuration
+// IPAddress server(172, 23, 5, 54);  //Pourquoi ?
 int status = WL_IDLE_STATUS;
-WiFiClient client;
+// WiFiClient client; // Pourquoi ?
 WiFiUDP udp;
 
 // DATA GLOSSARY
@@ -242,18 +243,20 @@ void appendDataToFile(String fileName, int* data, size_t dataSize)
     return;
   }
   // serializeJson(data, dataFile);
-  dataFile.write(data, dataSize * sizeof(int)); //can cause prbls due to SdFat
+  for (int i=0;i<dataSize;i++){
+    //Serial.println(data[i]); //DEBUG
+    dataFile.print(String(data[i]) + ','); //can cause prbls due to SdFat
+  }
   dataFile.close();
 }
 
 // SENSOR FUNCTIONS
-unsigned int readTwoBytesAsUInt() {
+int readTwoBytesAsInt() {
   unsigned char high_byte = Wire.read();  // Read MSB
   unsigned char low_byte = Wire.read();   // Read LSB
   
-  unsigned int result = high_byte;
-  result = result << 8;
-  result |= low_byte;
+  int16_t itermediate_result = (low_byte << 8) | high_byte;
+  int result = itermediate_result;
   
   return result;
 }
@@ -275,7 +278,7 @@ void readSensorData(int* sensorArray) {
         //-------------------------READING PART (HAVE TO CHECK THE DOCUMENTATION)-------------------------//
         while (Wire.available() < 18); // Useful for multiple byte reading
         
-        // unsigned int angle16 = readTwoBytesAsUInt();
+        // unsigned int angle16 = readTwoBytesAsInt();
 
         // unsigned char high_byte = Wire.read();
         // unsigned char low_byte = Wire.read();  //A REDIGER EN FONCTION
@@ -286,15 +289,15 @@ void readSensorData(int* sensorArray) {
 
         // Add the sensor data to the sensorArray
         sensorArray[index++] = millis() - sensorTime;
-        sensorArray[index++] = readTwoBytesAsUInt();
-        sensorArray[index++] = readTwoBytesAsUInt();
-        sensorArray[index++] = readTwoBytesAsUInt();
-        sensorArray[index++] = readTwoBytesAsUInt();
-        sensorArray[index++] = readTwoBytesAsUInt();
-        sensorArray[index++] = readTwoBytesAsUInt();
-        sensorArray[index++] = readTwoBytesAsUInt();
-        sensorArray[index++] = readTwoBytesAsUInt();
-        sensorArray[index++] = readTwoBytesAsUInt();
+        sensorArray[index++] = readTwoBytesAsInt();
+        sensorArray[index++] = readTwoBytesAsInt();
+        sensorArray[index++] = readTwoBytesAsInt();
+        sensorArray[index++] = readTwoBytesAsInt();
+        sensorArray[index++] = readTwoBytesAsInt();
+        sensorArray[index++] = readTwoBytesAsInt();
+        sensorArray[index++] = readTwoBytesAsInt();
+        sensorArray[index++] = readTwoBytesAsInt();
+        sensorArray[index++] = readTwoBytesAsInt();
       }
       else {
         // In case of error, add -1 to the sensorArray for each attribute
@@ -323,6 +326,25 @@ void sendToServer(int* data) {
   }
 }
 
+void sendToServer(int* data, int Size) {
+  int packetSize = udp.parsePacket();
+  IPAddress remote;
+  unsigned int remotePort;
+  char packetBuffer[UDP_TX_PACKET_MAX_SIZE];
+
+  // If an incoming packet is detected
+  if (packetSize)
+  {
+    remote = udp.remoteIP();
+    udp.read(packetBuffer, UDP_TX_PACKET_MAX_SIZE);
+    udp.beginPacket(remote, atoi(packetBuffer));
+    for (int i=0;i<Size;i++){
+      udp.print(data[i]);
+    }
+    udp.endPacket();
+  }
+}
+
 void sendToServer(const char* data) {
   int packetSize = udp.parsePacket();
   IPAddress remote;
@@ -335,7 +357,7 @@ void sendToServer(const char* data) {
     remote = udp.remoteIP();
     udp.read(packetBuffer, UDP_TX_PACKET_MAX_SIZE);
     udp.beginPacket(remote, atoi(packetBuffer));
-    udp.print(*data);
+    udp.print(data);
     udp.endPacket();
   }
 }
@@ -381,11 +403,12 @@ void startAcquisition() {
     sensorTime = millis();
 
     // Send the glossary to the server
-    sendToServer(dataGlossary);
+    sendToServer(dataGlossary); // doit attendre la réception d'un paquet pour le faire ?
 
     // Create a new file in SD card
     fileName = getNextFileName();
     createFile(fileName);
+    // Insert here dataglossary in SD
   }
   state = !state;
   recButton.pressed = false;
@@ -425,7 +448,9 @@ void setup()
   setupWifi();
   udp.begin(serverPort);
   Serial.println("UDP server started at port " + String(serverPort));
-  Serial.println("IP Address Microcontroller:" + String(WiFi.localIP()));
+  Serial.print("IP Address Microcontroller: ");
+  Serial.println(WiFi.localIP());
+  // Serial.println(udp.remoteIP()); // debug: renvoie 0.0.0.0
 
   // LEDS SETUP STATE
   digitalWrite(LED3, LOW);
@@ -446,7 +471,7 @@ void loop()
   {
     int sensorData[N_CHANNELS * N_ADDRESS * ATTRIBUTES_SIZE];
     readSensorData(sensorData);
-    sendToServer(sensorData);
+    sendToServer(sensorData,N_CHANNELS * N_ADDRESS * ATTRIBUTES_SIZE);
     appendDataToFile(fileName, sensorData, N_CHANNELS * N_ADDRESS * ATTRIBUTES_SIZE);
     digitalWrite(REC_LED, HIGH);
   }
