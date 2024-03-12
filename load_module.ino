@@ -46,7 +46,7 @@ int gyroData[3]; // {gyroX, gyroY, gyroZ}
 int magData[3]; // {magX, magY, magZ}
 
 // Every sensor data
-int nanoData[4][3] = {accData, gyroData, magData};
+int *nanoData[4] = {accData, gyroData, magData};
 
 //---------------------------------------------------------------------------
 /*FUNCTIONS*/
@@ -57,9 +57,13 @@ float analogToVoltage(int analogValue) {
 }
 
 void floatToBytes(float value, byte* msb, byte* lsb) {
-  uint16_t float_as_int = *(uint16_t*)&value;
+  Serial.println("accX dans floatToBytes : " + String(value));
+  uint16_t float_as_int = *(uint16_t*)&value; 
+  Serial.println("float_as_int : " + String(float_as_int));
   *lsb = float_as_int & 0xFF; // LSB
   *msb = (float_as_int >> 8) & 0xFF; // MSB
+  Serial.println("lsb : " + String(*lsb));
+  Serial.println("msb : " + String(*msb));
 }
 
 void readFlexiForceSensors() {
@@ -99,6 +103,8 @@ void readIMUData() {
     IMU.readGyroscope(gyroX, gyroY, gyroZ);
     IMU.readMagneticField(magX, magY, magZ);
 
+    Serial.println("accX brut: " + String(accX));
+
     // Casting to int by conserving 2 decimal places
     accData[0] = round(accX*100);
     accData[1] = round(accY*100);
@@ -112,14 +118,12 @@ void readIMUData() {
     magData[1] = round(magY*100);
     magData[2] = round(magZ*100);
 
-    Serial.println("Acceleration: " + String(accData[0]) + " " + String(accData[1]) + " " + String(accData[2]));
-    Serial.println("Gyroscope: " + String(gyroData[0]) + " " + String(gyroData[1]) + " " + String(gyroData[2]));
-    Serial.println("Magnetic Field: " + String(magData[0]) + " " + String(magData[1]) + " " + String(magData[2]));
-    Serial.println("Load: " + String(loadData));
+    Serial.println("accX après passage dans nanoData: " + String(accData[0]));
   }
 }
 
 void writeTwoBytes(float value) {
+  Serial.println("accX juste avant d'envoyer : " + String(value));
   byte dataBytes[2];
   floatToBytes(value, &dataBytes[0], &dataBytes[1]);
   Wire.write(dataBytes[0]); // msb
@@ -127,12 +131,13 @@ void writeTwoBytes(float value) {
 }
 
 void sendDataOverI2C() {
-  for (int j = 0; j < 3; j++) {
-    for (int i = 0; i < 3; i++) {
-      writeTwoBytes(nanoData[j][i]);
-    }
-  }
-  writeTwoBytes(loadData);
+  writeTwoBytes(nanoData[0][0]); // accX
+  // for (int j = 0; j < 3; j++) {
+  //   for (int i = 0; i < 3; i++) {
+  //     writeTwoBytes(nanoData[j][i]);
+  //   }
+  // }
+  // writeTwoBytes(loadData);
 }
 
 //---------------------------------------------------------------------------
