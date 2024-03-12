@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <Wire.h>
 #include <Arduino_LSM9DS1.h>
+#include <Math.h>
 
 //---------------------------------------------------------------------------
 /*PROTOTYPES*/
@@ -40,12 +41,12 @@ const int ffs4 = A3;
 float loadData; // avgLoad
 
 // IMU data
-float *accData[3]; // {accX, accY, accZ}
-float *gyroData[3]; // {gyroX, gyroY, gyroZ}
-float *magData[3]; // {magX, magY, magZ}
+int *accData[3]; // {accX, accY, accZ}
+int *gyroData[3]; // {gyroX, gyroY, gyroZ}
+int *magData[3]; // {magX, magY, magZ}
 
 // Every sensor data
-float **nanoData[4] = {accData, gyroData, magData};
+int **nanoData[4] = {accData, gyroData, magData};
 
 //---------------------------------------------------------------------------
 /*FUNCTIONS*/
@@ -90,9 +91,9 @@ void readFlexiForceSensors() {
 
 void readIMUData() {
   if (IMU.accelerationAvailable()) {
-    IMU.readAcceleration(*accData[0], *accData[1], *accData[2]);
-    IMU.readGyroscope(*gyroData[0], *gyroData[1], *gyroData[2]);
-    IMU.readMagneticField(*magData[0], *magData[1], *magData[2]);
+    IMU.readAcceleration(round(*accData[0]), round(*accData[1]), round(*accData[2]));
+    IMU.readGyroscope(round(*gyroData[0]), round(*gyroData[1]), round(*gyroData[2]));
+    IMU.readMagneticField(round(*magData[0]), round(*magData[1]), round(*magData[2]));
   }
 }
 

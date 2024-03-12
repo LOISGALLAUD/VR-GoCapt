@@ -3,16 +3,32 @@
 
 const byte LOAD_MODULE_ADDRESS = 0x40;
 
+int readTwoBytesAsInt() {
+  unsigned char high_byte = Wire.read();  // Read MSB
+  unsigned char low_byte = Wire.read();   // Read LSB
+  
+  int16_t itermediate_result = (low_byte << 8) | high_byte;
+  int result = itermediate_result;
+  
+  return result;
+}
+
 void I2C_receive() {
   while (Wire.available()) {
     for (int i = 0; i < 3; i++) {
-        byte msb = Wire.read();
-        byte lsb = Wire.read();
-        uint16_t float_as_int = (msb << 8) | lsb;
-        float value = *(float*)&float_as_int;
-        Serial.println(value);
+        Serial.println("-------------DEBUT DE SEQUENCE-------------");
+        Serial.println("Accel X: " + String(readTwoBytesAsInt()));
+        Serial.println("Accel Y: " + String(readTwoBytesAsInt()));
+        Serial.println("Accel Z: " + String(readTwoBytesAsInt()));
+        Serial.println("Gyro X: " + String(readTwoBytesAsInt()));
+        Serial.println("Gyro Y: " + String(readTwoBytesAsInt()));
+        Serial.println("Gyro Z: " + String(readTwoBytesAsInt()));
+        Serial.println("Mag X: " + String(readTwoBytesAsInt()));
+        Serial.println("Mag Y: " + String(readTwoBytesAsInt()));
+        Serial.println("Mag Z: " + String(readTwoBytesAsInt()));
+        Serial.println("Load: " + String(readTwoBytesAsInt()));
         }
-    Serial.println("-------------FIN DE SEQUENCE-------------")
+    Serial.println("-------------FIN DE SEQUENCE-------------");
   }
 }
 
