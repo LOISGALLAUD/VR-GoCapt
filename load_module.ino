@@ -56,12 +56,10 @@ float analogToVoltage(int analogValue) {
   return (analogValue * VCC) / BITS;
 }
 
-void floatToBytes(float value, byte* msb, byte* lsb) {
+void floatToBytes(int value, byte* msb, byte* lsb) {
   Serial.println("accX dans floatToBytes : " + String(value));
-  uint16_t float_as_int = *(uint16_t*)&value; 
-  Serial.println("float_as_int : " + String(float_as_int));
-  *lsb = float_as_int & 0xFF; // LSB
-  *msb = (float_as_int >> 8) & 0xFF; // MSB
+  *lsb = value & 0xFF; // LSB
+  *msb = (value >> 8) & 0xFF; // MSB
   Serial.println("lsb : " + String(*lsb));
   Serial.println("msb : " + String(*msb));
 }
@@ -122,7 +120,7 @@ void readIMUData() {
   }
 }
 
-void writeTwoBytes(float value) {
+void writeTwoBytes(int value) {
   Serial.println("accX juste avant d'envoyer : " + String(value));
   byte dataBytes[2];
   floatToBytes(value, &dataBytes[0], &dataBytes[1]);
