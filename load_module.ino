@@ -22,7 +22,7 @@ const float OFFSET = 529;
 
 float mean_weight = 0.0;
 float weight_measurements[NUM_VALUES];
-unsigned int index = 0;
+unsigned int ind = 0;
 
 // Calibration factor
 const float cf = 1.0;
@@ -99,10 +99,10 @@ void loop() {
 
     // float weight_measurement = SLOPE * vout_total - OFFSET; // Linear regression
 
-    // weight_measurements[index] = weight_measurement;
-    // index = (index + 1) % NUM_VALUES;
+    // weight_measurements[ind] = weight_measurement;
+    // ind = (ind + 1) % NUM_VALUES;
 
-    // if (index == 0) {
+    // if (ind == 0) {
     //     float sum = 0.0;
     //     for (int i = 0; i < NUM_VALUES; i++) {
     //         sum += weight_measurements[i];
