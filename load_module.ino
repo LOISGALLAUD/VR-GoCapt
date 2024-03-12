@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <Wire.h>
 
 //---------------------------------------------------------------------------
 /*PROTOTYPES*/
@@ -7,6 +8,9 @@ float analogToVoltage(int analogValue);
 
 //---------------------------------------------------------------------------
 /*VARIABLES*/
+
+// I2C Address
+const int LOAD_MODULE_ADDRESS = 0x40; // A MODIFIER
 
 // Constants for FlexiForce sensors
 const float VCC = 3.3; // Voltage supplied to sensors
@@ -28,12 +32,25 @@ const int ffs2 = A1;
 const int ffs3 = A2;
 const int ffs4 = A3;
 
+// Transmitted Bytes
+byte inertalMSB = 0x0A;
+byte inertalLSB = 0x0B;
+byte loadMSB = 0x0C;
+byte loadLSB = 0x0D;
+
 //---------------------------------------------------------------------------
 /*FUNCTIONS*/
 
 // Function to convert analog value to voltage
 float analogToVoltage(int analogValue) {
   return (analogValue * VCC) / BITS;
+}
+
+void I2C_send(void) {
+  Wire.write(inertalMSB);
+  Wire.write(inertalLSB);
+  Wire.write(loadMSB);
+  Wire.write(loadLSB);
 }
 
 //---------------------------------------------------------------------------
@@ -43,12 +60,15 @@ float analogToVoltage(int analogValue) {
 /*MAIN*/
 
 void setup() {
-  Serial.begin(9600);
   // Set sensor pins as inputs
   pinMode(ffs1, INPUT);
   pinMode(ffs2, INPUT);
   pinMode(ffs3, INPUT);
   pinMode(ffs4, INPUT);
+
+  // I2C setup
+  Wire.begin(LOAD_MODULE_ADDRESS);
+  Wire.onRequest(I2C_send);
 }
 
 void loop() {
@@ -76,8 +96,4 @@ void loop() {
         // Resetting the array
         memset(weight_measurements, 0, sizeof(weight_measurements));
     }
-
-    Serial.println(mean_weight);
-
-    delay(0);
 }
