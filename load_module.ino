@@ -6,6 +6,10 @@
 /*PROTOTYPES*/
 
 float analogToVoltage(int analogValue);
+void floatToBytes(float value, byte* msb, byte* lsb);
+void readFlexiForceSensors();
+void readIMUData();
+void sendDataOverI2C();
 
 //---------------------------------------------------------------------------
 /*VARIABLES*/
@@ -20,8 +24,7 @@ const int NUM_VALUES = 10; // Number of values to average over
 const float SLOPE = 69.9;
 const float OFFSET = 529;
 
-float mean_weight = 0.0;
-float weight_measurements[NUM_VALUES];
+float weightMeasurements[NUM_VALUES];
 unsigned int ind = 0;
 
 // Calibration factor
@@ -33,16 +36,16 @@ const int ffs2 = A1;
 const int ffs3 = A2;
 const int ffs4 = A3;
 
-// Transmitted Bytes
-byte inertalMSB = 0x0A;
-byte inertalLSB = 0x0B;
-byte loadMSB = 0x0C;
-byte loadLSB = 0x0D;
+// Transmitted Bytes of the load
+float* loadData[1]; // {avgLoad}
 
-// Acc data
-float x, y, z;
-int degreesX = 0;
-int degreesY = 0;
+// IMU data
+float *accData[3]; // {accX, accY, accZ}
+float *gyroData[3]; // {gyroX, gyroY, gyroZ}
+float *magData[3]; // {magX, magY, magZ}
+
+// Every sensor data
+float **nanoData[4] = {accData, gyroData, magData, loadData};
 
 //---------------------------------------------------------------------------
 /*FUNCTIONS*/
@@ -52,11 +55,56 @@ float analogToVoltage(int analogValue) {
   return (analogValue * VCC) / BITS;
 }
 
-void I2C_send(void) {
-  Wire.write(inertalMSB);
-  Wire.write(inertalLSB);
-  Wire.write(loadMSB);
-  Wire.write(loadLSB);
+void floatToBytes(float value, byte* msb, byte* lsb) {
+  uint16_t float_as_int = *(uint16_t*)&value;
+  *lsb = float_as_int & 0xFF; // LSB
+  *msb = (float_as_int >> 8) & 0xFF; // MSB
+}
+
+void readFlexiForceSensors() {
+  float voutTotal = 0.0;
+  for (int i = 0; i < 4; i++) {
+    float vout = analogToVoltage(analogRead(ffs1 + i));
+    vout *= cf;
+    voutTotal += vout;
+  }
+
+  float weightMeasurement = SLOPE * voutTotal - OFFSET; // Linear regression
+
+  weightMeasurements[ind] = weightMeasurement;
+  ind = (ind + 1) % NUM_VALUES;
+
+  if (ind == 0) {
+    float sum = 0.0;
+    for (int i = 0; i < NUM_VALUES; i++) {
+      sum += weightMeasurements[i];
+    }
+
+    // Mean value
+    *loadData[0] = sum / NUM_VALUES;
+
+    // Resetting the array
+    memset(weightMeasurements, 0, sizeof(weightMeasurements));
+  }
+}
+
+void readIMUData() {
+  if (IMU.accelerationAvailable()) {
+    IMU.readAcceleration(accData[0], accData[1], accData[2]);
+    IMU.readGyroscope(gyroData[0], gyroData[1], gyroData[2]);
+    IMU.readMagneticField(magData[0], magData[1], magData[2]);
+  }
+}
+
+void sendDataOverI2C() {
+  for (int j = 0, j < 4; j++) {
+    for (int i = 0; i < 6; i++) {
+      bytes* dataBytes[2];
+      floatToBytes(*imuData[j][i], dataBytes[0], dataBytes[1]);
+      Wire.write(*dataBytes[0]); // msb
+      Wire.write(*dataBytes[1]); // lsb
+    }
+  }
 }
 
 //---------------------------------------------------------------------------
@@ -77,76 +125,16 @@ void setup() {
 
   // I2C setup
   Wire.begin(LOAD_MODULE_ADDRESS);
-  Wire.onRequest(I2C_send);
+  Wire.onRequest(sendDataOverI2C);
 
   // IMU setup
   if (!IMU.begin()) {
     Serial.println("Failed to initialize IMU!");
     while (1);
   }
-  Serial.print("Accelerometer sample rate = ");
-  Serial.print(IMU.accelerationSampleRate());
-  Serial.println("Hz");
 }
 
 void loop() {
-    // float vout_total = 0.0;
-    // for (int i = 0; i < 4; i++) {
-    //     float vout = analogToVoltage(analogRead(ffs1 + i));
-    //     vout *= cf;
-    //     vout_total += vout;
-    // }
-
-    // float weight_measurement = SLOPE * vout_total - OFFSET; // Linear regression
-
-    // weight_measurements[ind] = weight_measurement;
-    // ind = (ind + 1) % NUM_VALUES;
-
-    // if (ind == 0) {
-    //     float sum = 0.0;
-    //     for (int i = 0; i < NUM_VALUES; i++) {
-    //         sum += weight_measurements[i];
-    //     }
-        
-    //     // Mean value
-    //     mean_weight = sum / NUM_VALUES;
-
-    //     // Resetting the array
-    //     memset(weight_measurements, 0, sizeof(weight_measurements));
-    // }
-
-    if (IMU.accelerationAvailable()) {
-      IMU.readAcceleration(x, y, z);
-
-    }
-
-    if (x > 0.1) {
-      x = 100 * x;
-      degreesX = map(x, 0, 97, 0, 90);
-      Serial.print("Tilting up ");
-      Serial.print(degreesX);
-      Serial.println("  degrees");
-    }
-    if (x < -0.1) {
-      x = 100 * x;
-      degreesX = map(x, 0, -100, 0, 90);
-      Serial.print("Tilting down ");
-      Serial.print(degreesX);
-      Serial.println("  degrees");
-    }
-    if (y > 0.1) {
-      y = 100 * y;
-      degreesY = map(y, 0, 97, 0, 90);
-      Serial.print("Tilting left ");
-      Serial.print(degreesY);
-      Serial.println("  degrees");
-    }
-    if (y < -0.1) {
-      y = 100 * y;
-      degreesY = map(y, 0, -100, 0, 90);
-      Serial.print("Tilting right ");
-      Serial.print(degreesY);
-      Serial.println("  degrees");
-    }
-    delay(1000);
+  readFlexiForceSensors();
+  readIMUData();
 }
