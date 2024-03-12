@@ -42,12 +42,12 @@ void setupSDCard();
 String getNextFileName();
 void createFile(String fileName);
 void appendDataToFile(String fileName, int* data, size_t dataSize);
+void appendDataToFile(String fileName, const char* data);
 
 // SENSOR FUNCTIONS
 int readTwoBytesAsInt();
 void readSensorData(int* sensorArray);
-void sendToServer(int* data);
-void sendToServer(int* data, int Size);
+void sendToServer(int* data, int size);
 void sendToServer(const char* data);
 
 // STATE MACHINE FUNCTIONS
@@ -93,10 +93,9 @@ int sensorTime = millis();
 // WIFI SETUP
 const char *ssid = "TP-Link_6A88";
 const char *password = "07867552";
-unsigned int serverPort = 8080; //Port utilisé par configuration
-// IPAddress server(172, 23, 5, 54);  //Pourquoi ?
+unsigned int serverPort = 8080; // Port utilisé par configuration pour l'envoi des données
+IPAddress server(192, 168, 0, 255);  //Broadcast Address
 int status = WL_IDLE_STATUS;
-// WiFiClient client; // Pourquoi ?
 WiFiUDP udp;
 
 // DATA GLOSSARY
@@ -234,6 +233,7 @@ void appendDataToFile(String fileName, int* data, size_t dataSize)
 {
   /*
   Append the data to the existing file
+  Utilisée pour envoyer les données des capteurs (qui sont des entiers)
   */
   File dataFile = sd.open(fileName.c_str(), O_WRITE | O_AT_END);
   if (!dataFile)
@@ -247,6 +247,23 @@ void appendDataToFile(String fileName, int* data, size_t dataSize)
     //Serial.println(data[i]); //DEBUG
     dataFile.print(String(data[i]) + ','); //can cause prbls due to SdFat
   }
+  dataFile.close();
+}
+
+void appendDataToFile(String fileName, const char* data)
+{
+  /*
+  Append the data to the existing file
+  Utilisée pour envoyer le glossaire (qui est déjà une chaîne de caractères)
+  */
+  File dataFile = sd.open(fileName.c_str(), O_WRITE | O_AT_END);
+  if (!dataFile)
+  {
+    Serial.println("Error opening file!");
+    digitalWrite(ERR_LED,HIGH);
+    return;
+  }
+  dataFile.print(data);
   dataFile.close();
 }
 
@@ -275,17 +292,7 @@ void readSensorData(int* sensorArray) {
         Wire.endTransmission();
         Wire.requestFrom(addresses[j] >> 1, 18);
         
-        //-------------------------READING PART (HAVE TO CHECK THE DOCUMENTATION)-------------------------//
         while (Wire.available() < 18); // Useful for multiple byte reading
-        
-        // unsigned int angle16 = readTwoBytesAsInt();
-
-        // unsigned char high_byte = Wire.read();
-        // unsigned char low_byte = Wire.read();  //A REDIGER EN FONCTION
-        // unsigned int angle16 = high_byte;
-        // angle16 <<= 8;
-        // angle16 += low_byte;
-        //-------------------------READING PART (HAVE TO CHECK THE DOCUMENTATION)-------------------------//
 
         // Add the sensor data to the sensorArray
         sensorArray[index++] = millis() - sensorTime;
@@ -309,57 +316,25 @@ void readSensorData(int* sensorArray) {
   }
 }
 
-void sendToServer(int* data) {
-  int packetSize = udp.parsePacket();
-  IPAddress remote;
-  unsigned int remotePort;
-  char packetBuffer[UDP_TX_PACKET_MAX_SIZE];
-
-  // If an incoming packet is detected
-  if (packetSize)
-  {
-    remote = udp.remoteIP();
-    udp.read(packetBuffer, UDP_TX_PACKET_MAX_SIZE);
-    udp.beginPacket(remote, atoi(packetBuffer));
-    udp.print(*data);
-    udp.endPacket();
+// Utilisée pour envoyer les données des capteurs (qui sont des entiers)
+void sendToServer(int* data, int size) {
+  char buffer[size * 10];
+  int offset = 0;
+  for (int i=0; i<size; i++){
+    offset += sprintf(buffer + offset,"%d,",data[i]);
   }
+  buffer[offset] = '\0';
+  
+  udp.beginPacket(server, serverPort);
+  udp.print(buffer);
+  udp.endPacket();
 }
 
-void sendToServer(int* data, int Size) {
-  int packetSize = udp.parsePacket();
-  IPAddress remote;
-  unsigned int remotePort;
-  char packetBuffer[UDP_TX_PACKET_MAX_SIZE];
-
-  // If an incoming packet is detected
-  if (packetSize)
-  {
-    remote = udp.remoteIP();
-    udp.read(packetBuffer, UDP_TX_PACKET_MAX_SIZE);
-    udp.beginPacket(remote, atoi(packetBuffer));
-    for (int i=0;i<Size;i++){
-      udp.print(data[i]);
-    }
-    udp.endPacket();
-  }
-}
-
+// Utilisée pour envoyer le glossaire (qui est déjà une chaîne de caractères)
 void sendToServer(const char* data) {
-  int packetSize = udp.parsePacket();
-  IPAddress remote;
-  unsigned int remotePort;
-  char packetBuffer[UDP_TX_PACKET_MAX_SIZE];
-
-  // If an incoming packet is detected
-  if (packetSize)
-  {
-    remote = udp.remoteIP();
-    udp.read(packetBuffer, UDP_TX_PACKET_MAX_SIZE);
-    udp.beginPacket(remote, atoi(packetBuffer));
-    udp.print(data);
-    udp.endPacket();
-  }
+  udp.beginPacket(server, serverPort);
+  udp.print(data);
+  udp.endPacket();
 }
 
 // STATE MACHINE FUNCTIONS
@@ -409,6 +384,7 @@ void startAcquisition() {
     fileName = getNextFileName();
     createFile(fileName);
     // Insert here dataglossary in SD
+    appendDataToFile(fileName, dataGlossary);
   }
   state = !state;
   recButton.pressed = false;
@@ -471,7 +447,7 @@ void loop()
   {
     int sensorData[N_CHANNELS * N_ADDRESS * ATTRIBUTES_SIZE];
     readSensorData(sensorData);
-    sendToServer(sensorData,N_CHANNELS * N_ADDRESS * ATTRIBUTES_SIZE);
+    sendToServer(sensorData, N_CHANNELS * N_ADDRESS * ATTRIBUTES_SIZE);
     appendDataToFile(fileName, sensorData, N_CHANNELS * N_ADDRESS * ATTRIBUTES_SIZE);
     digitalWrite(REC_LED, HIGH);
   }
