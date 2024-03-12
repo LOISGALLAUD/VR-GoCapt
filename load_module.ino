@@ -82,7 +82,7 @@ void readFlexiForceSensors() {
     }
 
     // Mean value
-    loadData = sum / NUM_VALUES;
+    loadData = (int)(sum / NUM_VALUES);
 
     // Resetting the array
     memset(weightMeasurements, 0, sizeof(weightMeasurements));
@@ -91,9 +91,25 @@ void readFlexiForceSensors() {
 
 void readIMUData() {
   if (IMU.accelerationAvailable()) {
-    IMU.readAcceleration(round(*accData[0]), round(*accData[1]), round(*accData[2]));
-    IMU.readGyroscope(round(*gyroData[0]), round(*gyroData[1]), round(*gyroData[2]));
-    IMU.readMagneticField(round(*magData[0]), round(*magData[1]), round(*magData[2]));
+    float accX, accY, accZ;
+    float gyroX, gyroY, gyroZ;
+    float magX, magY, magZ;
+    IMU.readAcceleration(accX, accY, accZ);
+    IMU.readGyroscope(gyroX, gyroY, gyroZ);
+    IMU.readMagneticField(magX, magY, magZ);
+
+    // Casting to int
+    *accData[0] = (int)accX;
+    *accData[1] = (int)accY;
+    *accData[2] = (int)accZ;
+
+    *gyroData[0] = (int)gyroX;
+    *gyroData[1] = (int)gyroY;
+    *gyroData[2] = (int)gyroZ;
+
+    *magData[0] = (int)magX;
+    *magData[1] = (int)magY;
+    *magData[2] = (int)magZ;
   }
 }
 
@@ -112,9 +128,6 @@ void sendDataOverI2C() {
   }
   writeTwoBytes(loadData);
 }
-
-//---------------------------------------------------------------------------
-/*INTERRUPTS*/
 
 //---------------------------------------------------------------------------
 /*MAIN*/
@@ -143,4 +156,5 @@ void setup() {
 void loop() {
   readFlexiForceSensors();
   readIMUData();
+  delay(5000);
 }

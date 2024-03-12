@@ -15,8 +15,8 @@ int readTwoBytesAsInt() {
 
 void I2C_receive() {
   while (Wire.available()) {
+    Serial.println("-------------DEBUT DE SEQUENCE-------------");
     for (int i = 0; i < 3; i++) {
-        Serial.println("-------------DEBUT DE SEQUENCE-------------");
         Serial.println("Accel X: " + String(readTwoBytesAsInt()));
         Serial.println("Accel Y: " + String(readTwoBytesAsInt()));
         Serial.println("Accel Z: " + String(readTwoBytesAsInt()));
@@ -41,6 +41,5 @@ void loop() {
     // Read sensors
     Wire.requestFrom(LOAD_MODULE_ADDRESS, 20);
     I2C_receive();
-
-    delay(1000);
+    delay(5000);
 }
