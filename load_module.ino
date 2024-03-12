@@ -37,7 +37,7 @@ const int ffs3 = A2;
 const int ffs4 = A3;
 
 // Transmitted Bytes of the load
-float* loadData[1]; // {avgLoad}
+float loadData; // avgLoad
 
 // IMU data
 float *accData[3]; // {accX, accY, accZ}
@@ -45,7 +45,7 @@ float *gyroData[3]; // {gyroX, gyroY, gyroZ}
 float *magData[3]; // {magX, magY, magZ}
 
 // Every sensor data
-float **nanoData[4] = {accData, gyroData, magData, loadData};
+float **nanoData[4] = {accData, gyroData, magData};
 
 //---------------------------------------------------------------------------
 /*FUNCTIONS*/
@@ -81,7 +81,7 @@ void readFlexiForceSensors() {
     }
 
     // Mean value
-    *loadData[0] = sum / NUM_VALUES;
+    loadData = sum / NUM_VALUES;
 
     // Resetting the array
     memset(weightMeasurements, 0, sizeof(weightMeasurements));
@@ -90,21 +90,26 @@ void readFlexiForceSensors() {
 
 void readIMUData() {
   if (IMU.accelerationAvailable()) {
-    IMU.readAcceleration(accData[0], accData[1], accData[2]);
-    IMU.readGyroscope(gyroData[0], gyroData[1], gyroData[2]);
-    IMU.readMagneticField(magData[0], magData[1], magData[2]);
+    IMU.readAcceleration(*accData[0], *accData[1], *accData[2]);
+    IMU.readGyroscope(*gyroData[0], *gyroData[1], *gyroData[2]);
+    IMU.readMagneticField(*magData[0], *magData[1], *magData[2]);
   }
 }
 
+void writeTwoBytes(float value) {
+  byte* dataBytes[2];
+  floatToBytes(value, dataBytes[0], dataBytes[1]);
+  Wire.write(*dataBytes[0]); // msb
+  Wire.write(*dataBytes[1]); // lsb
+}
+
 void sendDataOverI2C() {
-  for (int j = 0, j < 4; j++) {
-    for (int i = 0; i < 6; i++) {
-      bytes* dataBytes[2];
-      floatToBytes(*imuData[j][i], dataBytes[0], dataBytes[1]);
-      Wire.write(*dataBytes[0]); // msb
-      Wire.write(*dataBytes[1]); // lsb
+  for (int j = 0; j < 3; j++) {
+    for (int i = 0; i < 3; i++) {
+      writeTwoBytes(*nanoData[j][i]);
     }
   }
+  writeTwoBytes(loadData);
 }
 
 //---------------------------------------------------------------------------
