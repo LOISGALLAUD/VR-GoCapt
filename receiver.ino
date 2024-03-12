@@ -17,16 +17,9 @@ void I2C_receive() {
   while (Wire.available()) {
     Serial.println("-------------DEBUT DE SEQUENCE-------------");
 
-    Serial.println("Accel X: " + String(readTwoBytesAsInt()));
-    Serial.println("Accel Y: " + String(readTwoBytesAsInt()));
-    Serial.println("Accel Z: " + String(readTwoBytesAsInt()));
-    Serial.println("Gyro X: " + String(readTwoBytesAsInt()));
-    Serial.println("Gyro Y: " + String(readTwoBytesAsInt()));
-    Serial.println("Gyro Z: " + String(readTwoBytesAsInt()));
-    Serial.println("Mag X: " + String(readTwoBytesAsInt()));
-    Serial.println("Mag Y: " + String(readTwoBytesAsInt()));
-    Serial.println("Mag Z: " + String(readTwoBytesAsInt()));
-    Serial.println("Load: " + String(readTwoBytesAsInt()));
+    Serial.println("Acceleration: " + String(readTwoBytesAsInt()) + " " + String(readTwoBytesAsInt()) + " " + String(readTwoBytesAsInt()));
+    Serial.println("Gyroscope: " + String(readTwoBytesAsInt()) + " " + String(readTwoBytesAsInt()) + " " + String(readTwoBytesAsInt()));
+    Serial.println("Magnetic Field: " + String(readTwoBytesAsInt()) + " " + String(readTwoBytesAsInt()) + " " + String(readTwoBytesAsInt()));
     
     Serial.println("-------------FIN DE SEQUENCE-------------");
   }

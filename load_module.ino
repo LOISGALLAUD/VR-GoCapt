@@ -111,11 +111,16 @@ void readIMUData() {
     magData[0] = round(magX*100);
     magData[1] = round(magY*100);
     magData[2] = round(magZ*100);
+
+    Serial.println("Acceleration: " + String(accData[0]) + " " + String(accData[1]) + " " + String(accData[2]));
+    Serial.println("Gyroscope: " + String(gyroData[0]) + " " + String(gyroData[1]) + " " + String(gyroData[2]));
+    Serial.println("Magnetic Field: " + String(magData[0]) + " " + String(magData[1]) + " " + String(magData[2]));
+    Serial.println("Load: " + String(loadData));
   }
 }
 
 void writeTwoBytes(float value) {
-  byte* dataBytes[2];
+  byte dataBytes[2];
   floatToBytes(value, &dataBytes[0], &dataBytes[1]);
   Wire.write(dataBytes[0]); // msb
   Wire.write(dataBytes[1]); // lsb
