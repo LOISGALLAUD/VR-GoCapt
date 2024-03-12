@@ -1,17 +1,26 @@
 #include <Wire.h>
 #include <Arduino.h>
 
-byte inertalMSB;
-byte inertalLSB;
-byte loadMSB;
-byte loadLSB;
+const byte LOAD_MODULE_ADDRESS = 0x40;
+
+// Transmitted Bytes of the load
+float* loadData[1]; // {avgLoad}
+
+// IMU data
+float *accData[3]; // {accX, accY, accZ}
+float *gyroData[3]; // {gyroX, gyroY, gyroZ}
+float *magData[3]; // {magX, magY, magZ}
 
 void I2C_receive() {
   while (Wire.available()) {
-    inertalMSB = Wire.read();
-    inertalLSB = Wire.read();
-    loadMSB = Wire.read();
-    loadLSB = Wire.read();
+    for (int i = 0; i < 4; i++) {
+        byte msb = Wire.read();
+        byte lsb = Wire.read();
+        uint16_t float_as_int = (msb << 8) | lsb;
+        float value = *(float*)&float_as_int;
+        Serial.println(value);
+        }
+    Serial.println("-------------FIN DE SEQUENCE-------------")
   }
 }
 
@@ -25,11 +34,5 @@ void loop() {
     Wire.requestFrom(LOAD_MODULE_ADDRESS, 4);
     I2C_receive();
 
-    Serial.print("Inertial: ");
-    Serial.print(inertalMSB);
-    Serial.print(inertalLSB);
-    Serial.print(" Load: ");
-    Serial.print(loadMSB);
-    Serial.println(loadLSB);
     delay(1000);
 }
