@@ -41,12 +41,12 @@ const int ffs4 = A3;
 float loadData; // avgLoad
 
 // IMU data
-int *accData[3]; // {accX, accY, accZ}
-int *gyroData[3]; // {gyroX, gyroY, gyroZ}
-int *magData[3]; // {magX, magY, magZ}
+int accData[3]; // {accX, accY, accZ}
+int gyroData[3]; // {gyroX, gyroY, gyroZ}
+int magData[3]; // {magX, magY, magZ}
 
 // Every sensor data
-int **nanoData[4] = {accData, gyroData, magData};
+int nanoData[4][3] = {accData, gyroData, magData};
 
 //---------------------------------------------------------------------------
 /*FUNCTIONS*/
@@ -81,8 +81,8 @@ void readFlexiForceSensors() {
       sum += weightMeasurements[i];
     }
 
-    // Mean value
-    loadData = (int)(sum / NUM_VALUES);
+    // Mean value (conserving 2 decimal places)
+    loadData = round(sum*100 / NUM_VALUES);
 
     // Resetting the array
     memset(weightMeasurements, 0, sizeof(weightMeasurements));
@@ -94,36 +94,37 @@ void readIMUData() {
     float accX, accY, accZ;
     float gyroX, gyroY, gyroZ;
     float magX, magY, magZ;
+
     IMU.readAcceleration(accX, accY, accZ);
     IMU.readGyroscope(gyroX, gyroY, gyroZ);
     IMU.readMagneticField(magX, magY, magZ);
 
-    // Casting to int
-    *accData[0] = (int)accX;
-    *accData[1] = (int)accY;
-    *accData[2] = (int)accZ;
+    // Casting to int by conserving 2 decimal places
+    accData[0] = round(accX*100);
+    accData[1] = round(accY*100);
+    accData[2] = round(accZ*100);
 
-    *gyroData[0] = (int)gyroX;
-    *gyroData[1] = (int)gyroY;
-    *gyroData[2] = (int)gyroZ;
+    gyroData[0] = round(gyroX*100);
+    gyroData[1] = round(gyroY*100);
+    gyroData[2] = round(gyroZ*100);
 
-    *magData[0] = (int)magX;
-    *magData[1] = (int)magY;
-    *magData[2] = (int)magZ;
+    magData[0] = round(magX*100);
+    magData[1] = round(magY*100);
+    magData[2] = round(magZ*100);
   }
 }
 
 void writeTwoBytes(float value) {
   byte* dataBytes[2];
-  floatToBytes(value, dataBytes[0], dataBytes[1]);
-  Wire.write(*dataBytes[0]); // msb
-  Wire.write(*dataBytes[1]); // lsb
+  floatToBytes(value, &dataBytes[0], &dataBytes[1]);
+  Wire.write(dataBytes[0]); // msb
+  Wire.write(dataBytes[1]); // lsb
 }
 
 void sendDataOverI2C() {
   for (int j = 0; j < 3; j++) {
     for (int i = 0; i < 3; i++) {
-      writeTwoBytes(*nanoData[j][i]);
+      writeTwoBytes(nanoData[j][i]);
     }
   }
   writeTwoBytes(loadData);
