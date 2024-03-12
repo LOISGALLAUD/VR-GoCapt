@@ -423,6 +423,7 @@ void setup()
   setupWifi();
   udp.begin(serverPort);
   Serial.println("UDP server started at port " + String(serverPort));
+  sendToServer("UDP server started at port " + String(serverPort));
   Serial.print("IP Address Microcontroller: ");
   Serial.println(WiFi.localIP());
   // Serial.println(udp.remoteIP()); // debug: renvoie 0.0.0.0

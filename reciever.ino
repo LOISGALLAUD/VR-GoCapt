@@ -4,10 +4,13 @@
 const byte LOAD_MODULE_ADDRESS = 0x40;
 
 int readTwoBytesAsInt() {
-  unsigned char high_byte = Wire.read();  // Read MSB
-  unsigned char low_byte = Wire.read();   // Read LSB
+  unsigned char msb = Wire.read();  // Read MSB
+  unsigned char lsb = Wire.read();   // Read LSB
   
-  int16_t itermediate_result = (low_byte << 8) | high_byte;
+  Serial.println("lsb : " + String(lsb));
+  Serial.println("msb : " + String(msb));
+
+  int16_t itermediate_result = (lsb << 8) & msb;
   int result = itermediate_result;
   
   return result;
@@ -15,13 +18,7 @@ int readTwoBytesAsInt() {
 
 void I2C_receive() {
   while (Wire.available()) {
-    Serial.println("-------------DEBUT DE SEQUENCE-------------");
-
-    Serial.println("Acceleration: " + String(readTwoBytesAsInt()) + " " + String(readTwoBytesAsInt()) + " " + String(readTwoBytesAsInt()));
-    Serial.println("Gyroscope: " + String(readTwoBytesAsInt()) + " " + String(readTwoBytesAsInt()) + " " + String(readTwoBytesAsInt()));
-    Serial.println("Magnetic Field: " + String(readTwoBytesAsInt()) + " " + String(readTwoBytesAsInt()) + " " + String(readTwoBytesAsInt()));
-    
-    Serial.println("-------------FIN DE SEQUENCE-------------");
+    Serial.println("accX : " + String(readTwoBytesAsInt()));
   }
 }
 
@@ -32,7 +29,7 @@ void setup() {
 
 void loop() {
     // Read sensors
-    Wire.requestFrom(LOAD_MODULE_ADDRESS, 20);
+    Wire.requestFrom(LOAD_MODULE_ADDRESS, 2);
     I2C_receive();
     delay(500);
 }

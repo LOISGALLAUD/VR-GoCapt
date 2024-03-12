@@ -98,25 +98,25 @@ void readIMUData() {
     float magX, magY, magZ;
 
     IMU.readAcceleration(accX, accY, accZ);
-    IMU.readGyroscope(gyroX, gyroY, gyroZ);
-    IMU.readMagneticField(magX, magY, magZ);
+    // IMU.readGyroscope(gyroX, gyroY, gyroZ);
+    // IMU.readMagneticField(magX, magY, magZ);
 
-    Serial.println("accX brut: " + String(accX));
+    // Serial.println("accX brut: " + String(accX));
 
     // Casting to int by conserving 2 decimal places
-    accData[0] = round(accX*100);
-    accData[1] = round(accY*100);
-    accData[2] = round(accZ*100);
+    accData[0] = map(accX*100, -97, 100, 0, 180);
+    // accData[1] = round(accY*100);
+    // accData[2] = round(accZ*100);
 
-    gyroData[0] = round(gyroX*100);
-    gyroData[1] = round(gyroY*100);
-    gyroData[2] = round(gyroZ*100);
+    // gyroData[0] = round(gyroX*100);
+    // gyroData[1] = round(gyroY*100);
+    // gyroData[2] = round(gyroZ*100);
 
-    magData[0] = round(magX*100);
-    magData[1] = round(magY*100);
-    magData[2] = round(magZ*100);
+    // magData[0] = round(magX*100);
+    // magData[1] = round(magY*100);
+    // magData[2] = round(magZ*100);
 
-    Serial.println("accX après passage dans nanoData: " + String(accData[0]));
+    Serial.println("accX après mappage sur 180° : " + String(accData[0]));
   }
 }
 
@@ -129,7 +129,7 @@ void writeTwoBytes(int value) {
 }
 
 void sendDataOverI2C() {
-  writeTwoBytes(nanoData[0][0]); // accX
+  writeTwoBytes(accData[0]); // accX
   // for (int j = 0; j < 3; j++) {
   //   for (int i = 0; i < 3; i++) {
   //     writeTwoBytes(nanoData[j][i]);
@@ -165,5 +165,5 @@ void setup() {
 void loop() {
   readFlexiForceSensors();
   readIMUData();
-  delay(5000);
+  delay(100);
 }
