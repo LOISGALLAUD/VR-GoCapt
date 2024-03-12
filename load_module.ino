@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <Wire.h>
+#include <Arduino_LSM9DS1.h>
 
 //---------------------------------------------------------------------------
 /*PROTOTYPES*/
@@ -38,6 +39,11 @@ byte inertalLSB = 0x0B;
 byte loadMSB = 0x0C;
 byte loadLSB = 0x0D;
 
+// Acc data
+float x, y, z;
+int degreesX = 0;
+int degreesY = 0;
+
 //---------------------------------------------------------------------------
 /*FUNCTIONS*/
 
@@ -60,6 +66,9 @@ void I2C_send(void) {
 /*MAIN*/
 
 void setup() {
+  // Serial setup
+  Serial.begin(9600);
+
   // Set sensor pins as inputs
   pinMode(ffs1, INPUT);
   pinMode(ffs2, INPUT);
@@ -69,31 +78,75 @@ void setup() {
   // I2C setup
   Wire.begin(LOAD_MODULE_ADDRESS);
   Wire.onRequest(I2C_send);
+
+  // IMU setup
+  if (!IMU.begin()) {
+    Serial.println("Failed to initialize IMU!");
+    while (1);
+  }
+  Serial.print("Accelerometer sample rate = ");
+  Serial.print(IMU.accelerationSampleRate());
+  Serial.println("Hz");
 }
 
 void loop() {
-    float vout_total = 0.0;
-    for (int i = 0; i < 4; i++) {
-        float vout = analogToVoltage(analogRead(ffs1 + i));
-        vout *= cf;
-        vout_total += vout;
-    }
+    // float vout_total = 0.0;
+    // for (int i = 0; i < 4; i++) {
+    //     float vout = analogToVoltage(analogRead(ffs1 + i));
+    //     vout *= cf;
+    //     vout_total += vout;
+    // }
 
-    float weight_measurement = SLOPE * vout_total - OFFSET; // Linear regression
+    // float weight_measurement = SLOPE * vout_total - OFFSET; // Linear regression
 
-    weight_measurements[index] = weight_measurement;
-    index = (index + 1) % NUM_VALUES;
+    // weight_measurements[index] = weight_measurement;
+    // index = (index + 1) % NUM_VALUES;
 
-    if (index == 0) {
-        float sum = 0.0;
-        for (int i = 0; i < NUM_VALUES; i++) {
-            sum += weight_measurements[i];
-        }
+    // if (index == 0) {
+    //     float sum = 0.0;
+    //     for (int i = 0; i < NUM_VALUES; i++) {
+    //         sum += weight_measurements[i];
+    //     }
         
-        // Mean value
-        mean_weight = sum / NUM_VALUES;
+    //     // Mean value
+    //     mean_weight = sum / NUM_VALUES;
 
-        // Resetting the array
-        memset(weight_measurements, 0, sizeof(weight_measurements));
+    //     // Resetting the array
+    //     memset(weight_measurements, 0, sizeof(weight_measurements));
+    // }
+
+    if (IMU.accelerationAvailable()) {
+      IMU.readAcceleration(x, y, z);
+
     }
+
+    if (x > 0.1) {
+      x = 100 * x;
+      degreesX = map(x, 0, 97, 0, 90);
+      Serial.print("Tilting up ");
+      Serial.print(degreesX);
+      Serial.println("  degrees");
+    }
+    if (x < -0.1) {
+      x = 100 * x;
+      degreesX = map(x, 0, -100, 0, 90);
+      Serial.print("Tilting down ");
+      Serial.print(degreesX);
+      Serial.println("  degrees");
+    }
+    if (y > 0.1) {
+      y = 100 * y;
+      degreesY = map(y, 0, 97, 0, 90);
+      Serial.print("Tilting left ");
+      Serial.print(degreesY);
+      Serial.println("  degrees");
+    }
+    if (y < -0.1) {
+      y = 100 * y;
+      degreesY = map(y, 0, -100, 0, 90);
+      Serial.print("Tilting right ");
+      Serial.print(degreesY);
+      Serial.println("  degrees");
+    }
+    delay(1000);
 }

@@ -1,7 +1,6 @@
 #include <Wire.h>
 #include <Arduino.h>
 
-
 byte inertalMSB;
 byte inertalLSB;
 byte loadMSB;
