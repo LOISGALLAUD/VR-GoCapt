@@ -57,11 +57,8 @@ float analogToVoltage(int analogValue) {
 }
 
 void floatToBytes(int value, byte* msb, byte* lsb) {
-  Serial.println("accX dans floatToBytes : " + String(value));
   *lsb = value & 0xFF; // LSB
   *msb = (value >> 8) & 0xFF; // MSB
-  Serial.println("lsb : " + String(*lsb));
-  Serial.println("msb : " + String(*msb));
 }
 
 void readFlexiForceSensors() {
@@ -84,7 +81,8 @@ void readFlexiForceSensors() {
     }
 
     // Mean value (conserving 2 decimal places)
-    loadData = round(sum*100 / NUM_VALUES);
+    // loadData = round(sum*100 / NUM_VALUES);
+    loadData = 69;
 
     // Resetting the array
     memset(weightMeasurements, 0, sizeof(weightMeasurements));
@@ -101,12 +99,10 @@ void readIMUData() {
     // IMU.readGyroscope(gyroX, gyroY, gyroZ);
     // IMU.readMagneticField(magX, magY, magZ);
 
-    // Serial.println("accX brut: " + String(accX));
-
-    // Casting to int by conserving 2 decimal places
+    // Mapping to 180° field
     accData[0] = map(accX*100, -97, 100, 0, 180);
-    // accData[1] = round(accY*100);
-    // accData[2] = round(accZ*100);
+    accData[1] = map(accY*100, -97, 100, 0, 180);
+    accData[2] = map(accZ*100, -97, 100, 0, 180);
 
     // gyroData[0] = round(gyroX*100);
     // gyroData[1] = round(gyroY*100);
@@ -115,21 +111,22 @@ void readIMUData() {
     // magData[0] = round(magX*100);
     // magData[1] = round(magY*100);
     // magData[2] = round(magZ*100);
-
-    Serial.println("accX après mappage sur 180° : " + String(accData[0]));
   }
 }
 
 void writeTwoBytes(int value) {
-  Serial.println("accX juste avant d'envoyer : " + String(value));
+  // Serial.println("Juste avant d'envoyer : " + String(value));
   byte dataBytes[2];
   floatToBytes(value, &dataBytes[0], &dataBytes[1]);
   Wire.write(dataBytes[0]); // msb
   Wire.write(dataBytes[1]); // lsb
+  Serial.println("lsb : " + String(dataBytes[1]));
 }
 
 void sendDataOverI2C() {
   writeTwoBytes(accData[0]); // accX
+  writeTwoBytes(accData[1]); // accY
+  writeTwoBytes(accData[2]); // accZ
   // for (int j = 0; j < 3; j++) {
   //   for (int i = 0; i < 3; i++) {
   //     writeTwoBytes(nanoData[j][i]);
