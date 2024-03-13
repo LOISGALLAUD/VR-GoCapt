@@ -1,15 +1,29 @@
+/*
+Code to implement inside central module to receive data from the load module
+located inside the shoe. The data is transmitted through I2C protocol.
+*/
+
 #include <Wire.h>
 #include <Arduino.h>
+
+//---------------------------------------------------------------------------
+/*PROTOTYPES*/
+
+int readTwoBytesAsInt();
+void I2C_receive();
+
+//---------------------------------------------------------------------------
+/*VARIABLES*/
 
 const byte LOAD_MODULE_ADDRESS = 0x40;
 const byte BYTES_TO_READ = 18;
 
+//---------------------------------------------------------------------------
+/*FUNCTIONS*/
+
 int readTwoBytesAsInt() {
-  unsigned char msb = Wire.read();  // Read MSB
-  unsigned char lsb = Wire.read();   // Read LSB
-  Serial.println("______________");
-  Serial.println("lsb : " + String(lsb));
-  Serial.println("msb : " + String(msb));
+  unsigned char msb = Wire.read();
+  unsigned char lsb = Wire.read();
   int16_t itermediate_result = (msb << 8) | lsb;
   int result = itermediate_result;
   return result;
