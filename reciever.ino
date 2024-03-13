@@ -2,6 +2,7 @@
 #include <Arduino.h>
 
 const byte LOAD_MODULE_ADDRESS = 0x40;
+const byte BYTES_TO_READ = 18;
 
 int readTwoBytesAsInt() {
   unsigned char msb = Wire.read();  // Read MSB
@@ -19,6 +20,12 @@ void I2C_receive() {
     Serial.println("accX : " + String(readTwoBytesAsInt()));
     Serial.println("accY : " + String(readTwoBytesAsInt()));
     Serial.println("accZ : " + String(readTwoBytesAsInt()));
+    Serial.println("gyroX : " + String(readTwoBytesAsInt()));
+    Serial.println("gyroY : " + String(readTwoBytesAsInt()));
+    Serial.println("gyroZ : " + String(readTwoBytesAsInt()));
+    Serial.println("magX : " + String(readTwoBytesAsInt()));
+    Serial.println("magY : " + String(readTwoBytesAsInt()));
+    Serial.println("magZ : " + String(readTwoBytesAsInt()));
   }
 }
 
@@ -29,7 +36,7 @@ void setup() {
 
 void loop() {
     // Read sensors
-    Wire.requestFrom(LOAD_MODULE_ADDRESS, 6);
+    Wire.requestFrom(LOAD_MODULE_ADDRESS, BYTES_TO_READ);
     I2C_receive();
     delay(500);
 }

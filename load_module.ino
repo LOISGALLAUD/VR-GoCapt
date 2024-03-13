@@ -10,6 +10,7 @@ float analogToVoltage(int analogValue);
 void floatToBytes(float value, byte* msb, byte* lsb);
 void readFlexiForceSensors();
 void readIMUData();
+void writeTwoBytes(int value);
 void sendDataOverI2C();
 
 //---------------------------------------------------------------------------
@@ -96,37 +97,45 @@ void readIMUData() {
     float magX, magY, magZ;
 
     IMU.readAcceleration(accX, accY, accZ);
-    // IMU.readGyroscope(gyroX, gyroY, gyroZ);
-    // IMU.readMagneticField(magX, magY, magZ);
+    IMU.readGyroscope(gyroX, gyroY, gyroZ);
+    IMU.readMagneticField(magX, magY, magZ);
 
     // Mapping to 180° field
     accData[0] = map(accX*100, -97, 100, 0, 180);
     accData[1] = map(accY*100, -97, 100, 0, 180);
     accData[2] = map(accZ*100, -97, 100, 0, 180);
 
-    // gyroData[0] = round(gyroX*100);
-    // gyroData[1] = round(gyroY*100);
-    // gyroData[2] = round(gyroZ*100);
+    gyroData[0] = map(gyroX*100, -97, 100, 0, 180);
+    gyroData[1] = map(gyroY*100, -97, 100, 0, 180);
+    gyroData[2] = map(gyroZ*100, -97, 100, 0, 180);
 
-    // magData[0] = round(magX*100);
-    // magData[1] = round(magY*100);
-    // magData[2] = round(magZ*100);
+    magData[0] = map(magX*100, -97, 100, 0, 180);
+    magData[1] = map(magY*100, -97, 100, 0, 180);
+    magData[2] = map(magZ*100, -97, 100, 0, 180);
   }
 }
 
 void writeTwoBytes(int value) {
-  // Serial.println("Juste avant d'envoyer : " + String(value));
   byte dataBytes[2];
   floatToBytes(value, &dataBytes[0], &dataBytes[1]);
   Wire.write(dataBytes[0]); // msb
   Wire.write(dataBytes[1]); // lsb
-  Serial.println("lsb : " + String(dataBytes[1]));
 }
 
 void sendDataOverI2C() {
   writeTwoBytes(accData[0]); // accX
   writeTwoBytes(accData[1]); // accY
   writeTwoBytes(accData[2]); // accZ
+
+  writeTwoBytes(gyroData[0]); // gyroX
+  writeTwoBytes(gyroData[1]); // gyroY
+  writeTwoBytes(gyroData[2]); // gyroZ
+
+  writeTwoBytes(magData[0]); // magX
+  writeTwoBytes(magData[1]); // magY
+  writeTwoBytes(magData[2]); // magZ
+
+  // Optimisation : envoi de 3 valeurs en même temps
   // for (int j = 0; j < 3; j++) {
   //   for (int i = 0; i < 3; i++) {
   //     writeTwoBytes(nanoData[j][i]);
