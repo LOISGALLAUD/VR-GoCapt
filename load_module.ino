@@ -36,7 +36,7 @@ void sendDataOverI2C();
 //---------------------------------------------------------------------------
 /*VARIABLES*/
 
-float weightMeasurements[NUM_VALUES];
+float weightMeasurements[NUMBER_OF_VALUES_TO_AVERAGE];
 unsigned int ind = 0;
 
 // Transmitted Bytes of the load
@@ -81,7 +81,7 @@ void readFlexiForceSensors() {
     }
 
     // Mean value (conserving 2 decimal places)
-    // loadData = round(sum*100 / NUM_VALUES);
+    // loadData = round(sum*100 / NUMBER_OF_VALUES_TO_AVERAGE);
     loadData = 69;
 
     // Resetting the array
@@ -104,13 +104,13 @@ void readIMUData() {
     accData[1] = map(accY*100, -97, 100, 0, 180);
     accData[2] = map(accZ*100, -97, 100, 0, 180);
 
-    gyroData[0] = map(gyroX*100, -97, 100, 0, 180);
-    gyroData[1] = map(gyroY*100, -97, 100, 0, 180);
-    gyroData[2] = map(gyroZ*100, -97, 100, 0, 180);
+    gyroData[0] = map(gyroX*100, -400, 400, 0, 100);
+    gyroData[1] = map(gyroY*100, -400, 400, 0, 100);
+    gyroData[2] = map(gyroZ*100, -400, 400, 0, 100);
 
-    magData[0] = map(magX*100, -97, 100, 0, 180);
-    magData[1] = map(magY*100, -97, 100, 0, 180);
-    magData[2] = map(magZ*100, -97, 100, 0, 180);
+    magData[0] = map(magX*100, -35, 35, 0, 180);
+    magData[1] = map(magY*100, -6, 70, 0, 180);
+    magData[2] = map(magZ*100, -40, 40, 0, 180);
   }
 }
 
