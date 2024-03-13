@@ -31,6 +31,7 @@ int readTwoBytesAsInt() {
 
 void I2C_receive() {
   while (Wire.available()) {
+    Serial.println("----------------------------------");
     Serial.println("accX : " + String(readTwoBytesAsInt()));
     Serial.println("accY : " + String(readTwoBytesAsInt()));
     Serial.println("accZ : " + String(readTwoBytesAsInt()));

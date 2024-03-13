@@ -65,7 +65,7 @@ void writeTwoBytes(int value) {
 
 void readFlexiForceSensors() {
   float voutTotal = 0.0;
-  for (int i = 0; i < 4; i++) {
+  for (int i = 0; i < 1; i++) {
     float vout = ANALOG_TO_VOLTAGE(analogRead(FFS1 + i));
     vout *= CALIBRATION_FACTOR;
     voutTotal += vout;
@@ -81,8 +81,8 @@ void readFlexiForceSensors() {
     }
 
     // Mean value (conserving 2 decimal places)
-    // loadData = round(sum*100 / NUMBER_OF_VALUES_TO_AVERAGE);
-    loadData = 69;
+    loadData = sum / NUMBER_OF_VALUES_TO_AVERAGE;
+    Serial.println("loadData : " + String(loadData));
 
     // Resetting the array
     memset(weightMeasurements, 0, sizeof(weightMeasurements));
@@ -91,30 +91,33 @@ void readFlexiForceSensors() {
 
 void readIMUData() {
   if (IMU.accelerationAvailable()) {
-    float accX, accY, accZ;
-    float gyroX, gyroY, gyroZ;
-    float magX, magY, magZ;
+    float acc[3] = {accX, accY, accZ};
+    float gyro[3] = {gyroX, gyroY, gyroZ};
+    float mag[3] = {magX, magY, magZ};
 
-    IMU.readAcceleration(accX, accY, accZ);
-    IMU.readGyroscope(gyroX, gyroY, gyroZ);
-    IMU.readMagneticField(magX, magY, magZ);
+    IMU.readAcceleration(acc[0], acc[1], acc[2]);
+    IMU.readGyroscope(gyro[0], gyro[1], gyro[2]);
+    IMU.readMagneticField(mag[0], mag[1], mag[2]);
 
-    // Mapping to 180° field
-    accData[0] = map(accX*100, -97, 100, 0, 180);
-    accData[1] = map(accY*100, -97, 100, 0, 180);
-    accData[2] = map(accZ*100, -97, 100, 0, 180);
+    // Linear Acceleration
+    for (int i = 0; i < 3; i++) {
+      accData[i] = map(acc[i]*100, -400, 400, -100, 100);
+    }
 
-    gyroData[0] = map(gyroX*100, -400, 400, 0, 100);
-    gyroData[1] = map(gyroY*100, -400, 400, 0, 100);
-    gyroData[2] = map(gyroZ*100, -400, 400, 0, 100);
+    // Angular Acceleration
+    for (int i = 0; i < 3; i++) {
+      gyroData[i] = map(gyro[i], -1000, 1000, -100, 100);
+    }
 
-    magData[0] = map(magX*100, -35, 35, 0, 180);
-    magData[1] = map(magY*100, -6, 70, 0, 180);
-    magData[2] = map(magZ*100, -40, 40, 0, 180);
+    // Magnetic Field
+    for (int i = 0; i < 3; i++) {
+      magData[i] = map(mag[i], -400, 400, -100, 100);
+    }
 
-    Serial.println("accX : " + String(AccData[0]));
-    Serial.println("accY : " + String(AccData[1]));
-    Serial.println("accZ : " + String(AccData[2]));
+    Serial.println("----------------------------------");
+    Serial.println("accX : " + String(accData[0]));
+    Serial.println("accY : " + String(accData[1]));
+    Serial.println("accZ : " + String(accData[2]));
     Serial.println("gyroX : " + String(gyroData[0]));
     Serial.println("gyroY : " + String(gyroData[1]));
     Serial.println("gyroZ : " + String(gyroData[2]));
@@ -125,25 +128,13 @@ void readIMUData() {
 }
 
 void sendDataOverI2C() {
-  writeTwoBytes(accData[0]); // accX
-  writeTwoBytes(accData[1]); // accY
-  writeTwoBytes(accData[2]); // accZ
-
-  writeTwoBytes(gyroData[0]); // gyroX
-  writeTwoBytes(gyroData[1]); // gyroY
-  writeTwoBytes(gyroData[2]); // gyroZ
-
-  writeTwoBytes(magData[0]); // magX
-  writeTwoBytes(magData[1]); // magY
-  writeTwoBytes(magData[2]); // magZ
-
   // Optimisation : envoi de 3 valeurs en même temps
-  // for (int j = 0; j < 3; j++) {
-  //   for (int i = 0; i < 3; i++) {
-  //     writeTwoBytes(nanoData[j][i]);
-  //   }
-  // }
-  // writeTwoBytes(loadData);
+  for (int j = 0; j < 3; j++) {
+    for (int i = 0; i < 3; i++) {
+      writeTwoBytes(nanoData[j][i]);
+    }
+  }
+  writeTwoBytes(loadData);
 }
 
 //---------------------------------------------------------------------------
