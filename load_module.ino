@@ -111,6 +111,16 @@ void readIMUData() {
     magData[0] = map(magX*100, -35, 35, 0, 180);
     magData[1] = map(magY*100, -6, 70, 0, 180);
     magData[2] = map(magZ*100, -40, 40, 0, 180);
+
+    Serial.println("accX : " + String(AccData[0]));
+    Serial.println("accY : " + String(AccData[1]));
+    Serial.println("accZ : " + String(AccData[2]));
+    Serial.println("gyroX : " + String(gyroData[0]));
+    Serial.println("gyroY : " + String(gyroData[1]));
+    Serial.println("gyroZ : " + String(gyroData[2]));
+    Serial.println("magX : " + String(magData[0]));
+    Serial.println("magY : " + String(magData[1]));
+    Serial.println("magZ : " + String(magData[2]));
   }
 }
 
