@@ -6,6 +6,7 @@
 #include <SPI.h>
 #include "SdFat.h"
 
+#define BYTES_TO_READ 18
 #define N_CHANNELS 5
 #define N_ADDRESS 4  // 8 max
 #define ADDR_BEGIN 1
@@ -25,6 +26,7 @@
 /*PROTOTYPES*/
 
 // SETUP FUNCTIONS
+bool setupChannel(int channel, bool* sensorMask);
 void setupSensors();
 void setupWifi();
 void setupSDCard();
@@ -40,6 +42,7 @@ int readTwoBytesAsInt();
 void readSensorData(int* sensorArray);
 void sendToServer(int* data, int size);
 void sendToServer(const char* data);
+void sendToServer(String data);
 
 // STATE MACHINE FUNCTIONS
 void stateMachine();
@@ -80,7 +83,7 @@ byte addresses[N_ADDRESS] = {
 };                       // list of addresses from the CMPS sensors
 int channels[N_CHANNELS] = { CHAN0, CHAN1, CHAN2, CHAN3,
                              CHAN4 /*, CHAN5, CHAN6, CHAN7*/ };  // CHAN(i) are defined in PWFusion_TCA9548A.h
-int validCMPSs[N_CHANNELS * N_ADDRESS] = { 0 };
+int sensorMask[N_CHANNELS * N_ADDRESS] 
 int sensorTime = millis();
 
 // WIFI SETUP
@@ -93,35 +96,40 @@ WiFiUDP udp;
 
 // DATA GLOSSARY
 // Example of data glossary for 3 sensors
-const char* dataGlossary = "['time', 'magx', 'magy', 'magz', 'accx', 'accy', 'accz', 'gyrx', 'gyry', 'gyrz']";
+const char* dataGlossary = "['time', 'magx', 'magy', 'magz', 'accx', 'accy', 'accz', 'gyrx', 'gyry', 'gyrz'],";
 
 //---------------------------------------------------------------------------//
 /*FUNCTIONS*/
 
 // SETUP FUNCTIONS
+bool setupChannel(int channel, bool* sensorMask) {
+  i2cMux.setChannel(channel);
+  for (int j = 0; j < N_ADDRESS; j++) {
+    Serial.print("sensor_" + String(j + channel * N_ADDRESS) + String(" : "));
+
+    Wire.beginTransmission(addresses[j] >> 1);
+    Wire.write(ADDR_BEGIN);
+    Wire.endTransmission();
+
+    Wire.requestFrom(addresses[j] >> 1, 1);
+    bool sensorFound = (Wire.read() != -1);
+    if (!sensorFound) { // Sensor not found
+      Serial.print("no sensor detected (ch " + String(channel));
+      Serial.print(" addr " + String(j) + String(")"));
+    } else { // Sensor found
+      validCMPSs[j + channel * N_ADDRESS] = 1;
+      Serial.print("sensor is found.");
+    }
+    Serial.println("");
+    sensorMask[j + channel * N_ADDRESS] = sensorFound;
+  }
+}
+
 void setupSensors() {
-  int timer = 0;
   Wire.begin();
   i2cMux.begin();
   for (int i = 0; i < N_CHANNELS; i++) {
-    i2cMux.setChannel(channels[i]);  // Select the current I2C channel using the multiplexer
-    for (int j = 0; j < N_ADDRESS; j++) {
-      Serial.print("sensor_" + String(j + i * N_ADDRESS) + String(" : "));
-
-      Wire.beginTransmission(addresses[j] >> 1); // starts communication with CMPS12
-      Wire.write(ADDR_BEGIN); // Sends the register we wish to start reading from
-      Wire.endTransmission();
-
-      Wire.requestFrom(addresses[j] >> 1, 1);
-      if (Wire.read() == -1) { // Sensor not found
-        Serial.print("no sensor detected (ch " + String(i));
-        Serial.print(" addr " + String(j) + String(")"));
-      } else { // Sensor found
-        validCMPSs[j + i * N_ADDRESS] = 1;
-        Serial.print("sensor is found.");
-      }
-      Serial.println("");
-    }
+    setupChannel(channels[i]);
   }
 }
 
@@ -132,7 +140,13 @@ void setupWifi() {
     Serial.print(".");
     delay(100);
   }
-  Serial.println("Connected to network.");
+  Serial.println("CONNECTED TO NETWORK.");
+  udp.begin(serverPort);
+  Serial.println("UDP server started at port " + String(serverPort));
+  sendToServer("UDP server started at port " + String(serverPort));
+  Serial.print("IP Address Microcontroller: ");
+  Serial.println(WiFi.localIP());
+  Serial.println("WIFI SETUP IS DONE.");
 }
 
 void setupSDCard() {
@@ -245,7 +259,6 @@ int readTwoBytesAsInt() {
 
 void readSensorData(int* sensorArray) {
   int index = 0;
-
   // Iterate over each channel
   for (int i = 0; i < N_CHANNELS; i++) {
     i2cMux.setChannel(channels[i]);
@@ -255,47 +268,36 @@ void readSensorData(int* sensorArray) {
         Wire.beginTransmission(addresses[j] >> 1);
         Wire.write(CMPS_RAW9);
         Wire.endTransmission();
-        Wire.requestFrom(addresses[j] >> 1, 18);
+        Wire.requestFrom(addresses[j] >> 1, BYTES_TO_READ);
 
-        while (Wire.available() < 18)
-          ;  // Useful for multiple byte reading
+        while (Wire.available() < BYTES_TO_READ);
 
         // Add the sensor data to the sensorArray
-        sensorArray[index++] = millis() - sensorTime;
-        sensorArray[index++] = readTwoBytesAsInt();
-        sensorArray[index++] = readTwoBytesAsInt();
-        sensorArray[index++] = readTwoBytesAsInt();
-        sensorArray[index++] = readTwoBytesAsInt();
-        sensorArray[index++] = readTwoBytesAsInt();
-        sensorArray[index++] = readTwoBytesAsInt();
-        sensorArray[index++] = readTwoBytesAsInt();
-        sensorArray[index++] = readTwoBytesAsInt();
-        sensorArray[index++] = readTwoBytesAsInt();
-      } else {
-        // In case of error, add -1 to the sensorArray for each attribute
+        // sensorArray[index++] = millis() - sensorTime;
+        sensorArray[index++] = 111111111;  // DEBUG
         for (int k = 0; k < ATTRIBUTES_SIZE; k++) {
-          sensorArray[index++] = -1;
+          sensorArray[index++] = readTwoBytesAsInt();
         }
-      }
+      } 
     }
   }
 }
 
-// Utilisée pour envoyer les données des capteurs (qui sont des entiers)
-void sendToServer(int* data, int size) {
-  char buffer[size * 10];
+void sendToServer(int* data) {
+  int size = N_CHANNELS * N_ADDRESS * ATTRIBUTES_SIZE;
+  char buffer[size * 10 + 1]; // +1 for null terminator
   int offset = 0;
+
   for (int i = 0; i < size; i++) {
-    offset += sprintf(buffer + offset, "%d,", data[i]);
+    offset += snprintf(buffer + offset, sizeof(buffer) - offset, "%d,", data[i]);
   }
-  buffer[offset] = '\0';
+  buffer[offset - 1] = '\0'; // Remove the last comma and add a null terminator
 
   udp.beginPacket(server, serverPort);
-  udp.print(buffer);
+  udp.print("[" + String(buffer) + "],");
   udp.endPacket();
 }
 
-// Utilisée pour envoyer le glossaire (qui est déjà une chaîne de caractères)
 void sendToServer(const char* data) {
   udp.beginPacket(server, serverPort);
   udp.print(data);
@@ -306,6 +308,20 @@ void sendToServer(String data) {
   udp.beginPacket(server, serverPort);
   udp.print(data);
   udp.endPacket();
+}
+
+void sendToServer(int data) {
+  udp.beginPacket(server, serverPort);
+  udp.print(data);
+  udp.endPacket();
+}
+
+void binaryArrayToInt(bool* binaryArray) {
+    let result = 0;
+    for (let i = 0; i < binaryArray.length; i++) {
+        result = (result << 1) | binaryArray[i];
+    }
+    return result;
 }
 
 // STATE MACHINE FUNCTIONS
@@ -347,14 +363,9 @@ void startAcquisition() {
   resetLeds();
   if (state == 0) {
     sensorTime = millis();
-
-    // Send the glossary to the server
-    sendToServer(dataGlossary);  // doit attendre la réception d'un paquet pour le faire ?
-
-    // Create a new file in SD card
+    sendToServer(dataGlossary);
     fileName = getNextFileName();
     createFile(fileName);
-    // Insert here dataglossary in SD
     appendDataToFile(fileName, dataGlossary);
   }
   state = !state;
@@ -382,7 +393,7 @@ void setup() {
   pinMode(LED3, OUTPUT);
   pinMode(REC_BUTTON, INPUT_PULLUP);
 
-  // STARTING SETUP
+  // LEDS STARTING SETUP
   digitalWrite(LED3, HIGH);
   digitalWrite(ERR_LED, HIGH);
 
@@ -390,18 +401,10 @@ void setup() {
   setupSDCard();
   setupSensors();
   setupWifi();
-  udp.begin(serverPort);
-  Serial.println("UDP server started at port " + String(serverPort));
-  sendToServer("UDP server started at port " + String(serverPort));
-  Serial.print("IP Address Microcontroller: ");
-  Serial.println(WiFi.localIP());
-  Serial.println("WIFI SETUP IS DONE.");
 
   // LEDS SETUP STATE
   digitalWrite(LED3, LOW);
   digitalWrite(ERR_LED, LOW);
-
-  // ENDING SETUP
 
   // INTERRUPTS
   attachInterrupt(recButton.pin, isr_rec, FALLING);
@@ -410,12 +413,11 @@ void setup() {
 
 void loop() {
   stateMachine();
-
-  // Output Logic
   if (state == 1) {
-    int sensorData[N_CHANNELS * N_ADDRESS * ATTRIBUTES_SIZE];
+    int sensorData[N_CHANNELS * N_ADDRESS * ATTRIBUTES_SIZE] = { 0 };
     readSensorData(sensorData);
-    sendToServer(sensorData, N_CHANNELS * N_ADDRESS * ATTRIBUTES_SIZE);
+    sendToServer(sensorData);
+    sendToServer(binaryArrayToInt(sensorMask));
     appendDataToFile(fileName, sensorData, N_CHANNELS * N_ADDRESS * ATTRIBUTES_SIZE);
     digitalWrite(REC_LED, HIGH);
   } else {
