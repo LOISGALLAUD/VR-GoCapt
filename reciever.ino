@@ -16,7 +16,7 @@ void I2C_receive();
 /*VARIABLES*/
 
 const byte LOAD_MODULE_ADDRESS = 0x40;
-const byte BYTES_TO_READ = 18;
+const byte BYTES_TO_READ = 26;
 
 //---------------------------------------------------------------------------
 /*FUNCTIONS*/
@@ -41,6 +41,11 @@ void I2C_receive() {
     Serial.println("magX : " + String(readTwoBytesAsInt()));
     Serial.println("magY : " + String(readTwoBytesAsInt()));
     Serial.println("magZ : " + String(readTwoBytesAsInt()));
+
+    Serial.println("Flexi1 : " + String(readTwoBytesAsInt()));
+    Serial.println("Flexi2 : " + String(readTwoBytesAsInt()));
+    Serial.println("Flexi3 : " + String(readTwoBytesAsInt()));
+    Serial.println("Flexi4 : " + String(readTwoBytesAsInt()));
   }
 }
 

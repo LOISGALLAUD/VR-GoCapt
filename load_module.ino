@@ -15,11 +15,7 @@ and transmitted to the central module through I2C protocol.
 #define FFS4 A3
 #define VCC 3.3 // Voltage supplied to sensors
 #define BITS 1024.0 // Number of bits in ADC
-#define NUMBER_OF_VALUES_TO_AVERAGE 10 // Number of values to average over
-#define SLOPE 69.9 // Slope of the linear regression
-#define OFFSET 529 // Offset of the linear regression
-#define LOAD_MODULE_ADDRESS 0x40 // I2C address of the load module 
-#define CALIBRATION_FACTOR 1.0 // Calibration factor
+#define LOAD_MODULE_ADDRESS 0x40 // I2C address of the load module
 
 #define ANALOG_TO_VOLTAGE(analogValue) (analogValue * VCC) / BITS
 
@@ -28,7 +24,7 @@ and transmitted to the central module through I2C protocol.
 
 float analogToVoltage(int analogValue);
 void floatToBytes(float value, byte* msb, byte* lsb);
-void readFlexiForceSensors();
+void readFlexiForceSensors(float* voutFlexiForce);
 void readIMUData();
 void writeTwoBytes(int value);
 void sendDataOverI2C();
@@ -36,11 +32,8 @@ void sendDataOverI2C();
 //---------------------------------------------------------------------------
 /*VARIABLES*/
 
-float weightMeasurements[NUMBER_OF_VALUES_TO_AVERAGE];
-unsigned int ind = 0;
-
 // Transmitted Bytes of the load
-float loadData; // avgLoad
+float voutFlexiForce[4];
 
 // IMU data
 int accData[3]; // {accX, accY, accZ}
@@ -63,37 +56,23 @@ void writeTwoBytes(int value) {
   Wire.write(dataBytes[1]); // lsb
 }
 
-void readFlexiForceSensors() {
-  float voutTotal = 0.0;
-  for (int i = 0; i < 1; i++) {
-    float vout = ANALOG_TO_VOLTAGE(analogRead(FFS1 + i));
-    vout *= CALIBRATION_FACTOR;
-    voutTotal += vout;
+void readFlexiForceSensors(float* voutFlexiForce) {
+  float vout = 0.0;
+  for (int i = 0; i < 4; i++) {
+    voutFlexiForce[i] = 100*ANALOG_TO_VOLTAGE(analogRead(FFS1 + i));
   }
-  float weightMeasurement = SLOPE * voutTotal - OFFSET; // Linear regression
-  weightMeasurements[ind] = weightMeasurement;
-  ind = ++ind % NUMBER_OF_VALUES_TO_AVERAGE;
 
-  if (ind == 0) {
-    float sum = 0.0;
-    for (int i = 0; i < NUMBER_OF_VALUES_TO_AVERAGE; i++) {
-      sum += weightMeasurements[i];
-    }
-
-    // Mean value (conserving 2 decimal places)
-    loadData = sum / NUMBER_OF_VALUES_TO_AVERAGE;
-    Serial.println("loadData : " + String(loadData));
-
-    // Resetting the array
-    memset(weightMeasurements, 0, sizeof(weightMeasurements));
+  // Print data
+  for (int i = 0; i < 4; i++) {
+    Serial.println("voutFlexiForce[" + String(i) + "]" + String(voutFlexiForce[i]));
   }
 }
 
 void readIMUData() {
   if (IMU.accelerationAvailable()) {
-    float acc[3] = {accX, accY, accZ};
-    float gyro[3] = {gyroX, gyroY, gyroZ};
-    float mag[3] = {magX, magY, magZ};
+    float acc[3];
+    float gyro[3];
+    float mag[3];
 
     IMU.readAcceleration(acc[0], acc[1], acc[2]);
     IMU.readGyroscope(gyro[0], gyro[1], gyro[2]);
@@ -134,7 +113,9 @@ void sendDataOverI2C() {
       writeTwoBytes(nanoData[j][i]);
     }
   }
-  writeTwoBytes(loadData);
+  for (int k = 0; k < 4; k++ ) {
+    writeTwoBytes(voutFlexiForce[k]);
+  }
 }
 
 //---------------------------------------------------------------------------
@@ -162,7 +143,7 @@ void setup() {
 }
 
 void loop() {
-  readFlexiForceSensors();
+  readFlexiForceSensors(voutFlexiForce);
   readIMUData();
   delay(100);
 }
