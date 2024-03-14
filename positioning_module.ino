@@ -84,8 +84,8 @@ int validCMPSs[N_CHANNELS * N_ADDRESS] = { 0 };
 int sensorTime = millis();
 
 // WIFI SETUP
-const char* ssid = "TP-Link_6A88";
-const char* password = "07867552";
+const char* ssid = "TP-Link_4AA1";
+const char* password = "33372884";
 unsigned int serverPort = 8080;      // Port utilisé par configuration pour l'envoi des données
 IPAddress server(192, 168, 0, 255);  //Broadcast Address
 int status = WL_IDLE_STATUS;
