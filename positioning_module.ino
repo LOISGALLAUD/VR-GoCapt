@@ -302,6 +302,12 @@ void sendToServer(const char* data) {
   udp.endPacket();
 }
 
+void sendToServer(String data) {
+  udp.beginPacket(server, serverPort);
+  udp.print(data);
+  udp.endPacket();
+}
+
 // STATE MACHINE FUNCTIONS
 void stateMachine() {
   if (recButton.pressed && !digitalRead(recButton.pin)) {
@@ -383,19 +389,19 @@ void setup() {
   // Setup
   setupSDCard();
   setupSensors();
-  // setupWifi();
-  // udp.begin(serverPort);
-  // Serial.println("UDP server started at port " + String(serverPort));
-  // sendToServer("UDP server started at port " + String(serverPort));
-  // Serial.print("IP Address Microcontroller: ");
-  // Serial.println(WiFi.localIP());
-  // Serial.println(udp.remoteIP()); // debug: renvoie 0.0.0.0
+  setupWifi();
+  udp.begin(serverPort);
+  Serial.println("UDP server started at port " + String(serverPort));
+  sendToServer("UDP server started at port " + String(serverPort));
+  Serial.print("IP Address Microcontroller: ");
+  Serial.println(WiFi.localIP());
+  Serial.println("WIFI SETUP IS DONE.");
 
   // LEDS SETUP STATE
   digitalWrite(LED3, LOW);
   digitalWrite(ERR_LED, LOW);
 
-  //-----------------------------------ENDING SETUP-----------------------------------//
+  // ENDING SETUP
 
   // INTERRUPTS
   attachInterrupt(recButton.pin, isr_rec, FALLING);
@@ -409,7 +415,7 @@ void loop() {
   if (state == 1) {
     int sensorData[N_CHANNELS * N_ADDRESS * ATTRIBUTES_SIZE];
     readSensorData(sensorData);
-    // sendToServer(sensorData, N_CHANNELS * N_ADDRESS * ATTRIBUTES_SIZE);
+    sendToServer(sensorData, N_CHANNELS * N_ADDRESS * ATTRIBUTES_SIZE);
     appendDataToFile(fileName, sensorData, N_CHANNELS * N_ADDRESS * ATTRIBUTES_SIZE);
     digitalWrite(REC_LED, HIGH);
   } else {
