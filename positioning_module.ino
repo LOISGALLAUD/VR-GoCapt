@@ -6,24 +6,16 @@
 #include <SPI.h>
 #include "SdFat.h"
 
-//---------------------------------------------------------------------------
-/*DEFINES*/
-
-// SENSORS
 #define N_CHANNELS 5
 #define N_ADDRESS 4 // 8 max
 #define ADDR_BEGIN 1
-// CMPS12
 #define CMPS_GET_ANGLE16 2
 #define CMPS_RAW9 6
 #define CMPS_DELAY 5
-// UDP & SD
 #define UDP_TX_PACKET_MAX_SIZE 100
 #define CHIP_SELECT 5
-// PINS
 #define REC_LED 13
 #define REC_BUTTON 33
-// LEDS
 #define ERR_LED 12
 #define LED1 14
 #define LED2 27
@@ -43,7 +35,7 @@ void createFile(String fileName);
 void appendDataToFile(String fileName, int* data, size_t dataSize);
 void appendDataToFile(String fileName, const char* data);
 
-// SENSOR FUNCTIONS
+// IMU FUNCTIONS
 int readTwoBytesAsInt();
 void readSensorData(int* sensorArray);
 void sendToServer(int* data, int size);
@@ -79,7 +71,7 @@ Button recButton = {
 String fileName;
 SdFat sd;
 
-// SENSOR SETUP
+// IMU SETUP
 const int ATTRIBUTES_SIZE = 9;
 TCA9548A i2cMux;
 byte addresses[N_ADDRESS] = {0xC0, 0xC2, 0xC4, 0xC6/*,
@@ -420,12 +412,12 @@ void setup()
   // Setup
   setupSDCard();
   setupSensors();
-  setupWifi();
-  udp.begin(serverPort);
-  Serial.println("UDP server started at port " + String(serverPort));
-  sendToServer("UDP server started at port " + String(serverPort));
-  Serial.print("IP Address Microcontroller: ");
-  Serial.println(WiFi.localIP());
+  // setupWifi();
+  // udp.begin(serverPort);
+  // Serial.println("UDP server started at port " + String(serverPort));
+  // sendToServer("UDP server started at port " + String(serverPort));
+  // Serial.print("IP Address Microcontroller: ");
+  // Serial.println(WiFi.localIP());
   // Serial.println(udp.remoteIP()); // debug: renvoie 0.0.0.0
 
   // LEDS SETUP STATE
@@ -447,7 +439,7 @@ void loop()
   {
     int sensorData[N_CHANNELS * N_ADDRESS * ATTRIBUTES_SIZE];
     readSensorData(sensorData);
-    sendToServer(sensorData, N_CHANNELS * N_ADDRESS * ATTRIBUTES_SIZE);
+    // sendToServer(sensorData, N_CHANNELS * N_ADDRESS * ATTRIBUTES_SIZE);
     appendDataToFile(fileName, sensorData, N_CHANNELS * N_ADDRESS * ATTRIBUTES_SIZE);
     digitalWrite(REC_LED, HIGH);
   }
