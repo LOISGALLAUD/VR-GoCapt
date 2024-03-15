@@ -9,6 +9,7 @@
 #define BYTES_TO_READ 18
 #define N_CHANNELS 5
 #define N_ADDRESS 4  // 8 max
+#define ATTRIBUTES_SIZE 10
 #define ADDR_BEGIN 1
 #define CMPS_GET_ANGLE16 2
 #define CMPS_RAW9 6
@@ -26,7 +27,6 @@
 /*PROTOTYPES*/
 
 // SETUP FUNCTIONS
-bool setupChannel(int channel, bool* sensorMask);
 void setupSensors();
 void setupWifi();
 void setupSDCard();
@@ -43,6 +43,8 @@ void readSensorData(int* sensorArray);
 void sendToServer(int* data, int size);
 void sendToServer(const char* data);
 void sendToServer(String data);
+int binaryArrayToInt(bool* binaryArray);
+int countNonZero(bool* arr, int size);
 
 // STATE MACHINE FUNCTIONS
 void stateMachine();
@@ -75,7 +77,6 @@ String fileName;
 SdFat sd;
 
 // IMU SETUP
-const int ATTRIBUTES_SIZE = 9;
 TCA9548A i2cMux;
 byte addresses[N_ADDRESS] = {
   0xC0, 0xC2, 0xC4, 0xC6 /*,
@@ -83,7 +84,9 @@ byte addresses[N_ADDRESS] = {
 };                       // list of addresses from the CMPS sensors
 int channels[N_CHANNELS] = { CHAN0, CHAN1, CHAN2, CHAN3,
                              CHAN4 /*, CHAN5, CHAN6, CHAN7*/ };  // CHAN(i) are defined in PWFusion_TCA9548A.h
-int sensorMask[N_CHANNELS * N_ADDRESS] 
+bool sensorMask[N_CHANNELS * N_ADDRESS];
+char sensorMaskToSend[7];
+int validSensors;
 int sensorTime = millis();
 
 // WIFI SETUP
@@ -96,41 +99,40 @@ WiFiUDP udp;
 
 // DATA GLOSSARY
 // Example of data glossary for 3 sensors
-const char* dataGlossary = "['time', 'magx', 'magy', 'magz', 'accx', 'accy', 'accz', 'gyrx', 'gyry', 'gyrz'],";
+const char* dataGlossary = "['time','magx','magy','magz','accx','accy','accz','gyrx','gyry','gyrz']";
 
 //---------------------------------------------------------------------------//
 /*FUNCTIONS*/
 
 // SETUP FUNCTIONS
-bool setupChannel(int channel, bool* sensorMask) {
-  i2cMux.setChannel(channel);
-  for (int j = 0; j < N_ADDRESS; j++) {
-    Serial.print("sensor_" + String(j + channel * N_ADDRESS) + String(" : "));
-
-    Wire.beginTransmission(addresses[j] >> 1);
-    Wire.write(ADDR_BEGIN);
-    Wire.endTransmission();
-
-    Wire.requestFrom(addresses[j] >> 1, 1);
-    bool sensorFound = (Wire.read() != -1);
-    if (!sensorFound) { // Sensor not found
-      Serial.print("no sensor detected (ch " + String(channel));
-      Serial.print(" addr " + String(j) + String(")"));
-    } else { // Sensor found
-      validCMPSs[j + channel * N_ADDRESS] = 1;
-      Serial.print("sensor is found.");
-    }
-    Serial.println("");
-    sensorMask[j + channel * N_ADDRESS] = sensorFound;
-  }
-}
 
 void setupSensors() {
   Wire.begin();
   i2cMux.begin();
   for (int i = 0; i < N_CHANNELS; i++) {
-    setupChannel(channels[i]);
+    i2cMux.setChannel(channels[i]);
+    for (int j = 0; j < N_ADDRESS; j++) {
+      Serial.print("sensor_" + String(j + i * N_ADDRESS) + String(" : "));
+
+      Wire.beginTransmission(addresses[j] >> 1);
+      Wire.write(ADDR_BEGIN);
+      Wire.endTransmission();
+
+      Wire.requestFrom(addresses[j] >> 1, 1);
+      bool sensorFound = (Wire.read() != -1);
+      if (!sensorFound) {  // Sensor not found
+        Serial.print("no sensor detected (ch " + String(i));
+        Serial.print(" addr " + String(j) + String(")"));
+      } else {  // Sensor found
+        sensorMask[j + i * N_ADDRESS] = 1;
+        Serial.print("sensor is found.");
+      }
+      Serial.println("");
+      sensorMask[j + i * N_ADDRESS] = sensorFound;
+    }
   }
+  validSensors = countNonZero(sensorMask, sizeof(sensorMask) / sizeof(bool));
+  Serial.println("Valid sensors : " + String(validSensors));
 }
 
 void setupWifi() {
@@ -140,7 +142,7 @@ void setupWifi() {
     Serial.print(".");
     delay(100);
   }
-  Serial.println("CONNECTED TO NETWORK.");
+  Serial.println("\nCONNECTED TO NETWORK.");
   udp.begin(serverPort);
   Serial.println("UDP server started at port " + String(serverPort));
   sendToServer("UDP server started at port " + String(serverPort));
@@ -225,11 +227,14 @@ void appendDataToFile(String fileName, int* data, size_t dataSize) {
     digitalWrite(ERR_LED, HIGH);
     return;
   }
+
+  dataFile.print(String("["));
   // serializeJson(data, dataFile);
   for (int i = 0; i < dataSize; i++) {
     //Serial.println(data[i]); //DEBUG
     dataFile.print(String(data[i]) + ',');  //can cause prbls due to SdFat
   }
+  dataFile.print(String("],"));
   dataFile.close();
 }
 
@@ -245,6 +250,7 @@ void appendDataToFile(String fileName, const char* data) {
     return;
   }
   dataFile.print(data);
+  dataFile.print(',');
   dataFile.close();
 }
 
@@ -264,43 +270,49 @@ void readSensorData(int* sensorArray) {
     i2cMux.setChannel(channels[i]);
     // Iterate over each sensor
     for (int j = 0; j < N_ADDRESS; j++) {
-      if (validCMPSs[j + i * N_ADDRESS] == 1) {
+      if (sensorMask[j + i * N_ADDRESS] == 1) {
         Wire.beginTransmission(addresses[j] >> 1);
         Wire.write(CMPS_RAW9);
         Wire.endTransmission();
         Wire.requestFrom(addresses[j] >> 1, BYTES_TO_READ);
 
-        while (Wire.available() < BYTES_TO_READ);
+        while (Wire.available() < BYTES_TO_READ)
+          ;
 
         // Add the sensor data to the sensorArray
-        // sensorArray[index++] = millis() - sensorTime;
-        sensorArray[index++] = 111111111;  // DEBUG
-        for (int k = 0; k < ATTRIBUTES_SIZE; k++) {
+        sensorArray[index++] = millis() - sensorTime;
+        for (int k = 0; k < ATTRIBUTES_SIZE - 1; k++) {
           sensorArray[index++] = readTwoBytesAsInt();
         }
-      } 
+      }
     }
   }
 }
 
 void sendToServer(int* data) {
-  int size = N_CHANNELS * N_ADDRESS * ATTRIBUTES_SIZE;
-  char buffer[size * 10 + 1]; // +1 for null terminator
-  int offset = 0;
+  int size = validSensors * ATTRIBUTES_SIZE;
+  //4+size + 10*size ([+]+,+\O)
+  char buffer[size * 11 + 4];
+  buffer[0] = '[';
+  int offset = 1;
 
   for (int i = 0; i < size; i++) {
-    offset += snprintf(buffer + offset, sizeof(buffer) - offset, "%d,", data[i]);
+    offset += sprintf(buffer + offset, "%d,", data[i]);
   }
-  buffer[offset - 1] = '\0'; // Remove the last comma and add a null terminator
+  buffer[offset] = ']';
+  buffer[offset + 1] = ',';
+  buffer[offset + 2] = '\0';  // Remove the last comma and add a null terminator
 
   udp.beginPacket(server, serverPort);
-  udp.print("[" + String(buffer) + "],");
+  udp.print(buffer);
   udp.endPacket();
 }
 
+// Utilisé pour l'envoi du glossaire et du masque de capteurs
 void sendToServer(const char* data) {
   udp.beginPacket(server, serverPort);
   udp.print(data);
+  udp.print(',');
   udp.endPacket();
 }
 
@@ -316,12 +328,22 @@ void sendToServer(int data) {
   udp.endPacket();
 }
 
-void binaryArrayToInt(bool* binaryArray) {
-    let result = 0;
-    for (let i = 0; i < binaryArray.length; i++) {
-        result = (result << 1) | binaryArray[i];
+int binaryArrayToInt(bool* binaryArray, int size) {
+  int num = 0;
+  for (int i = 0; i < size; i++) {
+    num = (num << 1) | binaryArray[i];
+  }
+  return num;
+}
+
+int countNonZero(bool* arr, int size) {
+  int count = 0;
+  for (int i = 0; i < size; i++) {
+    if (arr[i] != 0) {
+      count++;
     }
-    return result;
+  }
+  return count;
 }
 
 // STATE MACHINE FUNCTIONS
@@ -363,9 +385,11 @@ void startAcquisition() {
   resetLeds();
   if (state == 0) {
     sensorTime = millis();
+    sendToServer(sensorMaskToSend);
     sendToServer(dataGlossary);
     fileName = getNextFileName();
     createFile(fileName);
+    appendDataToFile(fileName, sensorMaskToSend);
     appendDataToFile(fileName, dataGlossary);
   }
   state = !state;
@@ -398,6 +422,7 @@ void setup() {
   digitalWrite(ERR_LED, HIGH);
 
   // Setup
+  delay(1000);
   setupSDCard();
   setupSensors();
   setupWifi();
@@ -405,6 +430,15 @@ void setup() {
   // LEDS SETUP STATE
   digitalWrite(LED3, LOW);
   digitalWrite(ERR_LED, LOW);
+
+  int maskSize = sizeof(sensorMask) / sizeof(sensorMask[0]);
+  Serial.println("maskSize : " + String(maskSize));
+  Serial.print("MASK : 0b");
+  for (int i = 0; i < maskSize; i++) {
+    Serial.print(sensorMask[i]);
+  }
+  sprintf(sensorMaskToSend, "%d", binaryArrayToInt(sensorMask, maskSize));
+  Serial.println(" = " + String(sensorMaskToSend));
 
   // INTERRUPTS
   attachInterrupt(recButton.pin, isr_rec, FALLING);
@@ -414,11 +448,10 @@ void setup() {
 void loop() {
   stateMachine();
   if (state == 1) {
-    int sensorData[N_CHANNELS * N_ADDRESS * ATTRIBUTES_SIZE] = { 0 };
+    int sensorData[validSensors * ATTRIBUTES_SIZE] = { 0 };
     readSensorData(sensorData);
     sendToServer(sensorData);
-    sendToServer(binaryArrayToInt(sensorMask));
-    appendDataToFile(fileName, sensorData, N_CHANNELS * N_ADDRESS * ATTRIBUTES_SIZE);
+    appendDataToFile(fileName, sensorData, validSensors * ATTRIBUTES_SIZE);
     digitalWrite(REC_LED, HIGH);
   } else {
     digitalWrite(REC_LED, LOW);
