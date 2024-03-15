@@ -15,8 +15,8 @@ void I2C_receive();
 //---------------------------------------------------------------------------
 /*VARIABLES*/
 
-const byte LOAD_MODULE_ADDRESS = 0x40;
-const byte BYTES_TO_READ = 26;
+const byte LOAD_MODULE_ADDRESS = 0xC6;
+const byte BYTES_TO_READ = 1;
 
 //---------------------------------------------------------------------------
 /*FUNCTIONS*/
@@ -55,8 +55,9 @@ void setup() {
 }
 
 void loop() {
-    // Read sensors
-    Wire.requestFrom(LOAD_MODULE_ADDRESS, BYTES_TO_READ);
-    I2C_receive();
-    delay(500);
+  // bool sensorFound = (Wire.read() != -1);
+  // Read sensors
+  Wire.requestFrom(LOAD_MODULE_ADDRESS, BYTES_TO_READ);
+  I2C_receive();
+  delay(500);
 }

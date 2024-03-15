@@ -15,7 +15,7 @@ and transmitted to the central module through I2C protocol.
 #define FFS4 A3
 #define VCC 3.3 // Voltage supplied to sensors
 #define BITS 1024.0 // Number of bits in ADC
-#define LOAD_MODULE_ADDRESS 0x40 // I2C address of the load module
+#define LOAD_MODULE_ADDRESS (0xC6 << 1) // I2C address of the load module
 
 #define ANALOG_TO_VOLTAGE(analogValue) (analogValue * VCC) / BITS
 
