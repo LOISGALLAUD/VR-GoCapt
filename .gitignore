@@ -13,9 +13,6 @@
 # Ignore compiled hex files
 *.hex
 
-# Ignore generated documentation files
-/doc/
-
 # Ignore Arduino IDE user configuration files
 /.vscode/
 /.settings/
