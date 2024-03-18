@@ -6,7 +6,8 @@
 #include <SPI.h>
 #include "SdFat.h"
 
-#define BYTES_TO_READ 18
+#define BYTES_TO_READ_IN_POSITIONING_MODULE 18
+#define BYTES_TO_READ_IN_LOAD_MODULE 18
 #define N_CHANNELS 5
 #define N_ADDRESS 4  // 8 max
 #define ATTRIBUTES_SIZE 10
@@ -82,6 +83,7 @@ byte addresses[N_ADDRESS] = {
   0xC0, 0xC2, 0xC4, 0xC6 /*,
                              0xC8, 0xCA, 0xCC, 0xCE*/
 };                       // list of addresses from the CMPS sensors
+byte loadModuleAddresses[2] = { 0xC6, 0x0 };
 int channels[N_CHANNELS] = { CHAN0, CHAN1, CHAN2, CHAN3,
                              CHAN4 /*, CHAN5, CHAN6, CHAN7*/ };  // CHAN(i) are defined in PWFusion_TCA9548A.h
 bool sensorMask[N_CHANNELS * N_ADDRESS];
@@ -271,12 +273,21 @@ void readSensorData(int* sensorArray) {
     // Iterate over each sensor
     for (int j = 0; j < N_ADDRESS; j++) {
       if (sensorMask[j + i * N_ADDRESS] == 1) {
-        Wire.beginTransmission(addresses[j] >> 1);
+        byte currentAddress = addresses[j] >> 1;
+        Wire.beginTransmission(currentAddress);
         Wire.write(CMPS_RAW9);
         Wire.endTransmission();
-        Wire.requestFrom(addresses[j] >> 1, BYTES_TO_READ);
 
-        while (Wire.available() < BYTES_TO_READ)
+        int bytesToRead;
+        if (currentAddress == (loadModuleAddresses[0] >> 1) |
+        currentAddress == (loadModuleAddresses[1] >> 1)) {
+          bytesToRead = BYTES_TO_READ_IN_LOAD_MODULE;
+        } else {
+          bytesToRead = BYTES_TO_READ_IN_POSITIONING_MODULE;
+        }
+        Serial.println("bytesToRead : " + String(bytesToRead));
+        Wire.requestFrom(addresses[j] >> 1, bytesToRead);
+        while (Wire.available() < bytesToRead)
           ;
 
         // Add the sensor data to the sensorArray
