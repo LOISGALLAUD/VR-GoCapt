@@ -223,7 +223,6 @@ void setupWifi() {
   Serial.println("WIFI SETUP IS DONE.");
 }
 
-
 // SD FUNCTIONS
 String getNextFileName() {
   int maxNumber = 0;
