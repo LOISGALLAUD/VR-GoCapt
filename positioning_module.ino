@@ -102,12 +102,18 @@ int sensorTime = millis();
 // DATA GLOSSARY
 const char* dataGlossary = "['time','magx','magy','magz','accx','accy','accz','gyrx','gyry','gyrz']";
 const String* limbs = { 
-  "lShoulder", "lArm", "lForearm", "lHand",             // CHAN0
-  "lThigh", "lLeg", "lFoot", "lFrontLoad", "lBackLoad", // CHAN1
-  "rThigh", "rLeg", "rFoot", "rFrontLoad", "rBackLoad", // CHAN2
-  "head", "spine", "hips", "NaS",                       // CHAN3
-  "rShoulder", "rArm", "rForearm", "rHand",             // CHAN4
-  };
+  "lShoulder", "lArm", "lForearm", "lHand",  // CHAN0
+  "lThigh", "lLeg", "lFoot", "NaS"           // CHAN1
+  "rThigh", "rLeg", "rFoot", "NaS"           // CHAN2
+  "head", "spine", "hips", "NaS",            // CHAN3
+  "rShoulder", "rArm", "rForearm", "rHand",  // CHAN4
+};
+
+int test[6];
+for (int i = 0; i < 4; i++) {
+  test[i] = 0;
+}
+
 String limbsGlossary[MAX_SENSORS];
 
 // WIFI SETUP
@@ -349,6 +355,7 @@ void readSensorData(int* sensorArray) {
         Wire.write(CMPS_RAW9);
         Wire.endTransmission();
 
+        // Read sensor data the right amount of bytes
         int bytesToRead;
         if (currentAddress == (loadModuleAddresses[0] >> 1) |
         currentAddress == (loadModuleAddresses[1] >> 1)) {
@@ -356,6 +363,7 @@ void readSensorData(int* sensorArray) {
         } else {
           bytesToRead = BYTES_TO_READ_IN_POSITIONING_MODULE;
         }
+
         Serial.println("bytesToRead : " + String(bytesToRead));
         Wire.requestFrom(addresses[j] >> 1, bytesToRead);
         while (Wire.available() < bytesToRead)
@@ -428,19 +436,28 @@ int countNonZero(bool* arr, int size) {
   return count;
 }
 
-String *sensorMaskToLimbsGlossary(bool* sensorMask) {
-  String limbsGlossary[validSensors];
+String *sensorMaskToLimbsGlossary(bool* sensorMask) 
+  String limbsGlossary[validSensors+4];
   int index = 0;
-  int limbGloss
+  
   for (int i = 0; i < sizeof(channels)/sizeof(channels[0]); i++) {
     for (int j = 0; j < channels[i].length; j++) {
       if (sensorMask[j + i * channels[i].length] == 1) {
-        limbsGlossary[index++] = limbs[j + i * channels[i].length];
+        limbsGlossary[index++] = limbs[j + i * channels[i].length]; // Ajoute le membre au glossaire
+
+        // Rajouter les deux capteurs de charge pour les pieds
+        if (limbs[j + i * channels[i].length] == "lFoot") {
+          limbsGlossary[index++] = "lFrontLoad";
+          limbsGlossary[index++] = "lBackLoad";
+        } else if (limbs[j + i * channels[i].length] == "rFoot") {
+          limbsGlossary[index++] = "rFrontLoad";
+          limbsGlossary[index++] = "rBackLoad";
+        }
       }
     }
   }
   return limbsGlossary;
-}
+
 
 // STATE MACHINE FUNCTIONS
 void stateMachine() {
