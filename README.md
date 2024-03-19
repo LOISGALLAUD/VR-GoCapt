@@ -2,19 +2,16 @@
 <!--markdownlint-disable-file MD041-->
 <img src="images/readme/header.png" width="100%" align="center" alt="README.md" title="README.md">
 <h1 align="center"><b>VR-GoCapt</b></h1>
-<p
-    align="center"
-    style="font-size: 1.2rem; color: #888; font-style: italic;"
->
+<p align="center" style="font-size: 1.2rem; color: #888; font-style: italic;">
 Equipement de capteurs intelligents conçu pour la VR
 </p>
 <!-- <p align="center"><i>Smart sensor equiment designed for VR</i></p> -->
 <p align="center">
-    <img alt="License: MIT" src="https://img.shields.io/badge/project status-ongoing-brightgreen" target="_blank" /> 
-    <img src="https://img.shields.io/badge/language-c++-blue" />
-    <img alt="License: MIT" src="https://img.shields.io/badge/contributions-welcome-brightgreen.svg" target="_blank" />
-    <img alt="License: MIT" src="https://img.shields.io/badge/release -coming soon-red" target="_blank" />
-    <img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-yellow.svg" target="_blank" />  
+    <img alt="status" src="https://img.shields.io/badge/project status-ongoing-brightgreen" target="_blank" /> 
+    <img alt="langage" src="https://img.shields.io/badge/language-c++-blue" />
+    <img alt="contributions" src="https://img.shields.io/badge/contributions-welcome-brightgreen.svg" target="_blank" />
+    <img alt="release" src="https://img.shields.io/badge/release -coming soon-red" target="_blank" />
+    <img alt="license" src="https://img.shields.io/badge/license-MIT-yellow.svg" target="_blank" />  
 </p>
 
 ## Description
