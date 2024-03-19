@@ -71,8 +71,6 @@ Pour que la personne qui est chargée de l'analyse des données puisse les explo
 
 ## Contributions
 
-This project is currently being developed solely by our team. However, **we welcome contributions from the community**. If you'd like to become a contributor, **feel free to submit** pull requests, report issues, or offer suggestions. Your input is valuable and greatly appreciated as we work together to improve this project.
-
 Ce projet est actuellement développé uniquement par notre équipe. Cependant, **nous accueillons favorablement les contributions de la communauté**. Si vous souhaitez devenir contributeur, **n'hésitez pas à soumettre** des pull-requests, à signaler des problèmes ou à faire des suggestions. Votre contribution est précieuse et grandement appréciée alors que nous travaillons ensemble pour améliorer ce projet.
 
 ## A propos
