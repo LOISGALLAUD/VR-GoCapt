@@ -6,6 +6,7 @@
 #include <SPI.h>
 #include "SdFat.h"
 
+#define MAX_SENSORS 17
 #define BYTES_TO_READ_IN_POSITIONING_MODULE 18
 #define BYTES_TO_READ_IN_LOAD_MODULE 18
 #define N_CHANNELS 5
@@ -38,14 +39,14 @@ void createFile(String fileName);
 void appendDataToFile(String fileName, int* data, size_t dataSize);
 void appendDataToFile(String fileName, const char* data);
 
-// IMU FUNCTIONS
+// SENSORS FUNCTIONS
 int readTwoBytesAsInt();
 void readSensorData(int* sensorArray);
 void sendToServer(int* data, int size);
 void sendToServer(const char* data);
 void sendToServer(String data);
-int binaryArrayToInt(bool* binaryArray);
 int countNonZero(bool* arr, int size);
+String *sensorMaskToLimbsGlossary(bool* sensorMask);
 
 // STATE MACHINE FUNCTIONS
 void stateMachine();
@@ -79,29 +80,42 @@ SdFat sd;
 
 // IMU SETUP
 TCA9548A i2cMux;
-byte addresses[N_ADDRESS] = {
-  0xC0, 0xC2, 0xC4, 0xC6 /*,
-                             0xC8, 0xCA, 0xCC, 0xCE*/
-};                       // list of addresses from the CMPS sensors
+byte addresses[N_ADDRESS] = {0xC0, 0xC2, 0xC4, 0xC6};                     
 byte loadModuleAddresses[2] = { 0xC6, 0x0 };
-int channels[N_CHANNELS] = { CHAN0, CHAN1, CHAN2, CHAN3,
-                             CHAN4 /*, CHAN5, CHAN6, CHAN7*/ };  // CHAN(i) are defined in PWFusion_TCA9548A.h
+struct Channel {
+  int chan;
+  int length;
+};
+int channels = { 
+  Channel(CHAN0, 4), // LEFT ARM
+  Channel(CHAN1, 3), // LEFT LEG
+  Channel(CHAN2, 3), // RIGHT LEG
+  Channel(CHAN3, 3), // HEAD
+  Channel(CHAN4, 4)  // RIGHT ARM
+};
+// int channels[N_CHANNELS] = { CHAN0, CHAN1, CHAN2, CHAN3, CHAN4};
 bool sensorMask[N_CHANNELS * N_ADDRESS];
-char sensorMaskToSend[7];
 int validSensors;
 int sensorTime = millis();
+
+// DATA GLOSSARY
+const char* dataGlossary = "['time','magx','magy','magz','accx','accy','accz','gyrx','gyry','gyrz']";
+const String* limbs = { 
+  "lShoulder", "lArm", "lForearm", "lHand", // CHAN0
+  "lThigh", "lLeg", "lFoot", "NaS", // CHAN1
+  "rThigh", "rLeg", "rFoot", "NaS", // CHAN2
+  "head", "back", "belt", "NaS", // CHAN3
+  "rShoulder", "rArm", "rForearm", "rHand", // CHAN4
+  };
+String limbsGlossary[MAX_SENSORS];
 
 // WIFI SETUP
 const char* ssid = "TP-Link_4AA1";
 const char* password = "33372884";
-unsigned int serverPort = 8080;      // Port utilisé par configuration pour l'envoi des données
-IPAddress server(192, 168, 0, 255);  //Broadcast Address
+unsigned int serverPort = 8080;
+IPAddress server(192, 168, 0, 255);
 int status = WL_IDLE_STATUS;
 WiFiUDP udp;
-
-// DATA GLOSSARY
-// Example of data glossary for 3 sensors
-const char* dataGlossary = "['time','magx','magy','magz','accx','accy','accz','gyrx','gyry','gyrz']";
 
 //---------------------------------------------------------------------------//
 /*FUNCTIONS*/
@@ -112,8 +126,8 @@ void setupSensors() {
   Wire.begin();
   i2cMux.begin();
   for (int i = 0; i < N_CHANNELS; i++) {
-    i2cMux.setChannel(channels[i]);
-    for (int j = 0; j < N_ADDRESS; j++) {
+    i2cMux.setChannel(channels[i].chan);
+    for (int j = 0; j < channels[i].length; j++) {
       Serial.print("sensor_" + String(j + i * N_ADDRESS) + String(" : "));
 
       Wire.beginTransmission(addresses[j] >> 1);
@@ -138,7 +152,7 @@ void setupSensors() {
 }
 
 void setupWifi() {
-  Serial.println("Attempting to connect to WPA network...");
+  Serial.println("CONNECTING TO NETWORK...");
   status = WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) {
     Serial.print(".");
@@ -154,20 +168,16 @@ void setupWifi() {
 }
 
 void setupSDCard() {
-  Serial.println("Initializing SD card...");
+  Serial.println("SD SETUP...");
   if (!sd.begin(CHIP_SELECT, SD_SCK_MHZ(35))) {
     while (true) {
       Serial.print(".");
       delay(2000);
     }
-    Serial.println("SD initialization failed!");
+    Serial.println("SD FAILED.");
     return;
   }
-  Serial.println("SD initialization done.");
-
-  // Check list of files
-  // Serial.println("List of files :");
-  // sd.open("/", O_READ).ls();
+  Serial.println("SD SETUP IS DONE.");
 }
 
 // SD FUNCTIONS
@@ -269,7 +279,7 @@ void readSensorData(int* sensorArray) {
   int index = 0;
   // Iterate over each channel
   for (int i = 0; i < N_CHANNELS; i++) {
-    i2cMux.setChannel(channels[i]);
+    i2cMux.setChannel(channels[i].chan);
     // Iterate over each sensor
     for (int j = 0; j < N_ADDRESS; j++) {
       if (sensorMask[j + i * N_ADDRESS] == 1) {
@@ -319,7 +329,6 @@ void sendToServer(int* data) {
   udp.endPacket();
 }
 
-// Utilisé pour l'envoi du glossaire et du masque de capteurs
 void sendToServer(const char* data) {
   udp.beginPacket(server, serverPort);
   udp.print(data);
@@ -339,14 +348,6 @@ void sendToServer(int data) {
   udp.endPacket();
 }
 
-int binaryArrayToInt(bool* binaryArray, int size) {
-  int num = 0;
-  for (int i = 0; i < size; i++) {
-    num = (num << 1) | binaryArray[i];
-  }
-  return num;
-}
-
 int countNonZero(bool* arr, int size) {
   int count = 0;
   for (int i = 0; i < size; i++) {
@@ -355,6 +356,20 @@ int countNonZero(bool* arr, int size) {
     }
   }
   return count;
+}
+
+String *sensorMaskToLimbsGlossary(bool* sensorMask) {
+  String limbsGlossary[validSensors];
+  int index = 0;
+  int limbGloss
+  for (int i = 0; i < sizeof(channels)/sizeof(channels[0]); i++) {
+    for (int j = 0; j < channels[i].length; j++) {
+      if (sensorMask[j + i * channels[i].length] == 1) {
+        limbsGlossary[index++] = limbs[j + i * channels[i].length];
+      }
+    }
+  }
+  return limbsGlossary;
 }
 
 // STATE MACHINE FUNCTIONS
@@ -396,11 +411,11 @@ void startAcquisition() {
   resetLeds();
   if (state == 0) {
     sensorTime = millis();
-    sendToServer(sensorMaskToSend);
+    sendToServer(limbsGlossary);
     sendToServer(dataGlossary);
     fileName = getNextFileName();
     createFile(fileName);
-    appendDataToFile(fileName, sensorMaskToSend);
+    appendDataToFile(fileName, limbsGlossary); // Send the limb glossary
     appendDataToFile(fileName, dataGlossary);
   }
   state = !state;
@@ -442,17 +457,20 @@ void setup() {
   digitalWrite(LED3, LOW);
   digitalWrite(ERR_LED, LOW);
 
-  int maskSize = sizeof(sensorMask) / sizeof(sensorMask[0]);
-  Serial.println("maskSize : " + String(maskSize));
-  Serial.print("MASK : 0b");
-  for (int i = 0; i < maskSize; i++) {
+  int maskSize = ;
+  Serial.print("MASK : ");
+  for (int i = 0; i < sizeof(sensorMask) / sizeof(sensorMask[0]); i++) {
     Serial.print(sensorMask[i]);
   }
-  sprintf(sensorMaskToSend, "%d", binaryArrayToInt(sensorMask, maskSize));
-  Serial.println(" = " + String(sensorMaskToSend));
+  limbsGlossary = sensorMaskToLimbsGlossary(sensorMask);
+  Serial.println("\nLIMBS GLOSSARY : ");
+  for (int i = 0; i < validSensors; i++) {
+    Serial.println(limbsGlossary[i]);
+  }
 
   // INTERRUPTS
   attachInterrupt(recButton.pin, isr_rec, FALLING);
+
   Serial.println("SETUP IS DONE. READY TO START.");
 }
 
