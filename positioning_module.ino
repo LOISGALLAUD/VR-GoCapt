@@ -30,6 +30,7 @@
 
 // SETUP FUNCTIONS
 void setupSensors();
+bool readWifiConfig(String &ssid, String &password);
 void setupWifi();
 void setupSDCard();
 
@@ -110,8 +111,8 @@ const String* limbs = {
 String limbsGlossary[MAX_SENSORS];
 
 // WIFI SETUP
-const char* ssid = "TP-Link_4AA1";
-const char* password = "33372884";
+const char* ssid;
+const char* password;
 unsigned int serverPort = 8080;
 IPAddress server(192, 168, 0, 255);
 int status = WL_IDLE_STATUS;
@@ -121,7 +122,6 @@ WiFiUDP udp;
 /*FUNCTIONS*/
 
 // SETUP FUNCTIONS
-
 void setupSensors() {
   Wire.begin();
   i2cMux.begin();
@@ -151,8 +151,64 @@ void setupSensors() {
   Serial.println("Valid sensors : " + String(validSensors));
 }
 
+void setupSDCard() {
+  Serial.println("SD SETUP...");
+  if (!sd.begin(CHIP_SELECT, SD_SCK_MHZ(35))) {
+    while (true) {
+      Serial.print(".");
+      delay(2000);
+    }
+    Serial.println("SD FAILED.");
+    return;
+  }
+  Serial.println("SD SETUP IS DONE.");
+}
+
+bool readWifiConfig(String &ssid, String &password) {
+  File configFile = sd.open("/config.yml", O_READ);
+  if (!configFile) {
+    Serial.println("ERROR OPENING CONFIG FILE");
+    return false;
+  }
+
+  char line[128];
+  bool ssid_found = false;
+  bool password_found = false;
+
+  while (configFile.available()) {
+    configFile.readline(line, sizeof(line));
+    String str = String(line).trim();
+
+    if (str.startsWith("ssid:")) {
+      ssid_found = true;
+      ssid = str.substring(str.indexOf(":") + 1).trim();
+    } else if (str.startsWith("password:")) {
+      password_found = true;
+      password = str.substring(str.indexOf(":") + 1).trim();
+    }
+
+    if (ssid_found && password_found) {
+      break;
+    }
+  }
+
+  configFile.close();
+
+  if (!ssid_found || !password_found) {
+    Serial.println("ERROR READING SSID OR PASSWORD FROM CONFIG FILE");
+    return false;
+  }
+
+  return true;
+}
+
 void setupWifi() {
   Serial.println("CONNECTING TO NETWORK...");
+  bool configFound = readWifiConfig(ssid, password);
+  if (!configFound) {
+    Serial.println("WIFI SETUP FAILED.");
+    return;
+  }
   status = WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) {
     Serial.print(".");
@@ -167,18 +223,6 @@ void setupWifi() {
   Serial.println("WIFI SETUP IS DONE.");
 }
 
-void setupSDCard() {
-  Serial.println("SD SETUP...");
-  if (!sd.begin(CHIP_SELECT, SD_SCK_MHZ(35))) {
-    while (true) {
-      Serial.print(".");
-      delay(2000);
-    }
-    Serial.println("SD FAILED.");
-    return;
-  }
-  Serial.println("SD SETUP IS DONE.");
-}
 
 // SD FUNCTIONS
 String getNextFileName() {
