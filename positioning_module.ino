@@ -102,11 +102,11 @@ int sensorTime = millis();
 // DATA GLOSSARY
 const char* dataGlossary = "['time','magx','magy','magz','accx','accy','accz','gyrx','gyry','gyrz']";
 const String* limbs = { 
-  "lShoulder", "lArm", "lForearm", "lHand", // CHAN0
-  "lThigh", "lLeg", "lFoot", "NaS", // CHAN1
-  "rThigh", "rLeg", "rFoot", "NaS", // CHAN2
-  "head", "back", "belt", "NaS", // CHAN3
-  "rShoulder", "rArm", "rForearm", "rHand", // CHAN4
+  "lShoulder", "lArm", "lForearm", "lHand",             // CHAN0
+  "lThigh", "lLeg", "lFoot", "lFrontLoad", "lBackLoad", // CHAN1
+  "rThigh", "rLeg", "rFoot", "rFrontLoad", "rBackLoad", // CHAN2
+  "head", "spine", "hips", "NaS",                       // CHAN3
+  "rShoulder", "rArm", "rForearm", "rHand",             // CHAN4
   };
 String limbsGlossary[MAX_SENSORS];
 
@@ -115,7 +115,6 @@ const char* ssid;
 const char* password;
 unsigned int serverPort = 8080;
 IPAddress server(192, 168, 0, 255);
-int status = WL_IDLE_STATUS;
 WiFiUDP udp;
 
 //---------------------------------------------------------------------------//

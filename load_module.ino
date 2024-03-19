@@ -9,10 +9,8 @@ and transmitted to the central module through I2C protocol.
 #include <Arduino_LSM9DS1.h>
 #include <Math.h>
 
-#define FFS1 A0
-#define FFS2 A1
-#define FFS3 A2
-#define FFS4 A3
+#define FRONT_LOAD A0
+#define BACK_LOAD A1
 #define VCC 3.3 // Voltage supplied to sensors
 #define BITS 1024.0 // Number of bits in ADC
 #define LOAD_MODULE_ADDRESS (0xC6 >> 1) // I2C address of the load module
@@ -24,7 +22,7 @@ and transmitted to the central module through I2C protocol.
 
 float analogToVoltage(int analogValue);
 void floatToBytes(float value, byte* msb, byte* lsb);
-void readFlexiForceSensors(float* voutFlexiForce);
+void readFlexiForceSensors(void);
 void readIMUData();
 void writeTwoBytes(int value);
 void sendDataOverI2C();
@@ -33,7 +31,7 @@ void sendDataOverI2C();
 /*VARIABLES*/
 
 // Transmitted Bytes of the load
-float voutFlexiForce[4];
+float frontLoad, backLoad;
 
 // IMU data
 int accData[3]; // {accX, accY, accZ}
@@ -56,16 +54,13 @@ void writeTwoBytes(int value) {
   Wire.write(dataBytes[1]); // lsb
 }
 
-void readFlexiForceSensors(float* voutFlexiForce) {
-  float vout = 0.0;
-  for (int i = 0; i < 4; i++) {
-    voutFlexiForce[i] = 100*ANALOG_TO_VOLTAGE(analogRead(FFS1 + i));
-  }
+void readFlexiForceSensors(void) {
+  frontLoad = 100*ANALOG_TO_VOLTAGE(analogRead(FRONT_LOAD));
+  backLoad = 100*ANALOG_TO_VOLTAGE(analogRead(BACK_LOAD));
 
   // Print data
-  for (int i = 0; i < 4; i++) {
-    Serial.println("voutFlexiForce[" + String(i) + "]" + String(voutFlexiForce[i]));
-  }
+  Serial.println("Front Load: " + String(frontLoad));
+  Serial.println("Back Load: " + String(backLoad));
 }
 
 void readIMUData() {
@@ -113,9 +108,8 @@ void sendDataOverI2C() {
       writeTwoBytes(nanoData[j][i]);
     }
   }
-  for (int k = 0; k < 4; k++ ) {
-    writeTwoBytes(voutFlexiForce[k]);
-  }
+  writeTwoBytes(frontLoad);
+  writeTwoBytes(backLoad);
 }
 
 //---------------------------------------------------------------------------
@@ -126,10 +120,8 @@ void setup() {
   Serial.begin(9600);
 
   // Set sensor pins as inputs
-  pinMode(FFS1, INPUT);
-  pinMode(FFS2, INPUT);
-  pinMode(FFS3, INPUT);
-  pinMode(FFS4, INPUT);
+  pinMode(FRONT_LOAD, INPUT);
+  pinMode(BACK_LOAD, INPUT);
 
   // I2C setup
   Wire.begin(LOAD_MODULE_ADDRESS);
@@ -143,7 +135,7 @@ void setup() {
 }
 
 void loop() {
-  readFlexiForceSensors(voutFlexiForce);
+  readFlexiForceSensors();
   readIMUData();
   delay(100);
 }

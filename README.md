@@ -7,7 +7,7 @@ Equipement de capteurs intelligents conçu pour la VR
 </p>
 <!-- <p align="center"><i>Smart sensor equiment designed for VR</i></p> -->
 <p align="center">
-    <img alt="status" src="https://img.shields.io/badge/project status-ongoing-brightgreen" target="_blank" /> 
+    <img alt="status" src="https://img.shields.io/badge/project status-ongoing-brightgreen" target="_blank" />
     <img alt="langage" src="https://img.shields.io/badge/language-c++-blue" />
     <img alt="contributions" src="https://img.shields.io/badge/contributions-welcome-brightgreen.svg" target="_blank" />
     <img alt="release" src="https://img.shields.io/badge/release -coming soon-red" target="_blank" />
