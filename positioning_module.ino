@@ -80,7 +80,7 @@ SdFat sd;
 
 // IMU SETUP
 TCA9548A i2cMux;
-byte addresses[N_ADDRESS] = {0xC0, 0xC2, 0xC4, 0xC6};                     
+byte addresses[N_ADDRESS] = {0xC0, 0xC2, 0xC4, 0xC6};  // 0xC0=Near Central Module -> 0xC6=Far Central Module                   
 byte loadModuleAddresses[2] = { 0xC6, 0x0 };
 struct Channel {
   int chan;
@@ -266,6 +266,25 @@ void appendDataToFile(String fileName, const char* data) {
   dataFile.close();
 }
 
+void appendDataToFile(String fileName, String *data) {
+  /*
+  Append the data to the existing file
+  Utilisée pour envoyer le glossaire des membres (qui est un tableau de chaînes de caractères)
+  */
+  File dataFile = sd.open(fileName->c_str(), O_WRITE | O_AT_END);
+  if (!dataFile) {
+    Serial.println("Error opening file!");
+    digitalWrite(ERR_LED, HIGH);
+    return;
+  }
+  dataFile.print('[');
+  for (int i = 0; i < validSensors; i++) {
+    dataFile.print(data[i]);
+    dataFile.print(',');
+  }
+  dataFile.print('],');
+}
+
 // SENSOR FUNCTIONS
 int readTwoBytesAsInt() {
   unsigned char msb = Wire.read();
@@ -342,6 +361,15 @@ void sendToServer(String data) {
   udp.endPacket();
 }
 
+void sendToServer(String* data) {
+  udp.beginPacket(server, serverPort);
+  for (int i = 0; i < validSensors; i++) {
+    udp.print(data[i]);
+    udp.print(',');
+  }
+  udp.endPacket();
+}
+
 void sendToServer(int data) {
   udp.beginPacket(server, serverPort);
   udp.print(data);
@@ -410,13 +438,13 @@ void resetLeds() {
 void startAcquisition() {
   resetLeds();
   if (state == 0) {
-    sensorTime = millis();
     sendToServer(limbsGlossary);
     sendToServer(dataGlossary);
     fileName = getNextFileName();
     createFile(fileName);
     appendDataToFile(fileName, limbsGlossary); // Send the limb glossary
     appendDataToFile(fileName, dataGlossary);
+    sensorTime = millis(); // Start the timer
   }
   state = !state;
   recButton.pressed = false;
