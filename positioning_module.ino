@@ -30,7 +30,7 @@
 
 // SETUP FUNCTIONS
 void setupSensors();
-bool readWifiConfig(String &ssid, String &password);
+bool readWifiConfig(String ssid, String password);
 void setupWifi();
 void setupSDCard();
 
@@ -47,7 +47,7 @@ void sendToServer(int* data, int size);
 void sendToServer(const char* data);
 void sendToServer(String data);
 int countNonZero(bool* arr, int size);
-String *sensorMaskToLimbsGlossary(bool* sensorMask);
+void sensorMaskToLimbsGlossary(bool* sensorMask,String* limbsGlossary);
 
 // STATE MACHINE FUNCTIONS
 void stateMachine();
@@ -87,12 +87,12 @@ struct Channel {
   int chan;
   int length;
 };
-int channels = { 
-  Channel(CHAN0, 4), // LEFT ARM
-  Channel(CHAN1, 3), // LEFT LEG
-  Channel(CHAN2, 3), // RIGHT LEG
-  Channel(CHAN3, 3), // HEAD
-  Channel(CHAN4, 4)  // RIGHT ARM
+Channel channels[N_CHANNELS] = { 
+  {CHAN0, 4}, // LEFT ARM
+  {CHAN1, 3}, // LEFT LEG
+  {CHAN2, 3}, // RIGHT LEG
+  {CHAN3, 3}, // HEAD
+  {CHAN4, 4}  // RIGHT ARM
 };
 // int channels[N_CHANNELS] = { CHAN0, CHAN1, CHAN2, CHAN3, CHAN4};
 bool sensorMask[N_CHANNELS * N_ADDRESS];
@@ -101,7 +101,7 @@ int sensorTime = millis();
 
 // DATA GLOSSARY
 const char* dataGlossary = "['time','magx','magy','magz','accx','accy','accz','gyrx','gyry','gyrz']";
-const String* limbs = { 
+const String limbs[N_CHANNELS * N_ADDRESS] = { 
   "lShoulder", "lArm", "lForearm", "lHand",  // CHAN0
   "lThigh", "lLeg", "lFoot", "NaS"           // CHAN1
   "rThigh", "rLeg", "rFoot", "NaS"           // CHAN2
@@ -109,10 +109,7 @@ const String* limbs = {
   "rShoulder", "rArm", "rForearm", "rHand",  // CHAN4
 };
 
-int test[6];
-for (int i = 0; i < 4; i++) {
-  test[i] = 0;
-}
+int test[6] = {0};
 
 String limbsGlossary[MAX_SENSORS];
 
@@ -169,7 +166,7 @@ void setupSDCard() {
   Serial.println("SD SETUP IS DONE.");
 }
 
-bool readWifiConfig(String &ssid, String &password) {
+bool readWifiConfig(String ssid, String password) {
   File configFile = sd.open("/config.yml", O_READ);
   if (!configFile) {
     Serial.println("ERROR OPENING CONFIG FILE");
@@ -181,15 +178,18 @@ bool readWifiConfig(String &ssid, String &password) {
   bool password_found = false;
 
   while (configFile.available()) {
-    configFile.readline(line, sizeof(line));
-    String str = String(line).trim();
+    configFile.fgets(line, sizeof(line));
+    String str = line;
+    String(str).trim();
 
     if (str.startsWith("ssid:")) {
       ssid_found = true;
-      ssid = str.substring(str.indexOf(":") + 1).trim();
+      String ssid = str;
+      (ssid.substring(str.indexOf(":") + 1)).trim();
     } else if (str.startsWith("password:")) {
       password_found = true;
-      password = str.substring(str.indexOf(":") + 1).trim();
+      String password = str;
+      (password.substring(str.indexOf(":") + 1)).trim();
     }
 
     if (ssid_found && password_found) {
@@ -214,7 +214,7 @@ void setupWifi() {
     Serial.println("WIFI SETUP FAILED.");
     return;
   }
-  status = WiFi.begin(ssid, password);
+  bool status = WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) {
     Serial.print(".");
     delay(100);
@@ -319,7 +319,7 @@ void appendDataToFile(String fileName, String *data) {
   Append the data to the existing file
   Utilisée pour envoyer le glossaire des membres (qui est un tableau de chaînes de caractères)
   */
-  File dataFile = sd.open(fileName->c_str(), O_WRITE | O_AT_END);
+  File dataFile = sd.open(fileName.c_str(), O_WRITE | O_AT_END);
   if (!dataFile) {
     Serial.println("Error opening file!");
     digitalWrite(ERR_LED, HIGH);
@@ -436,28 +436,26 @@ int countNonZero(bool* arr, int size) {
   return count;
 }
 
-String *sensorMaskToLimbsGlossary(bool* sensorMask) 
-  String limbsGlossary[validSensors+4];
+void sensorMaskToLimbsGlossary(bool* sensorMask,String* limbsGlossary){
   int index = 0;
   
   for (int i = 0; i < sizeof(channels)/sizeof(channels[0]); i++) {
     for (int j = 0; j < channels[i].length; j++) {
-      if (sensorMask[j + i * channels[i].length] == 1) {
-        limbsGlossary[index++] = limbs[j + i * channels[i].length]; // Ajoute le membre au glossaire
+      if (sensorMask[j + i * N_ADDRESS] == 1) {
+        limbsGlossary[index++] = limbs[j + i * N_ADDRESS]; // Ajoute le membre au glossaire
 
         // Rajouter les deux capteurs de charge pour les pieds
-        if (limbs[j + i * channels[i].length] == "lFoot") {
+        if (limbs[j + i * N_ADDRESS] == "lFoot") {
           limbsGlossary[index++] = "lFrontLoad";
           limbsGlossary[index++] = "lBackLoad";
-        } else if (limbs[j + i * channels[i].length] == "rFoot") {
+        } else if (limbs[j + i * N_ADDRESS] == "rFoot") {
           limbsGlossary[index++] = "rFrontLoad";
           limbsGlossary[index++] = "rBackLoad";
         }
       }
     }
   }
-  return limbsGlossary;
-
+}
 
 // STATE MACHINE FUNCTIONS
 void stateMachine() {
@@ -544,12 +542,12 @@ void setup() {
   digitalWrite(LED3, LOW);
   digitalWrite(ERR_LED, LOW);
 
-  int maskSize = ;
+  int maskSize = N_ADDRESS*N_CHANNELS;
   Serial.print("MASK : ");
   for (int i = 0; i < sizeof(sensorMask) / sizeof(sensorMask[0]); i++) {
     Serial.print(sensorMask[i]);
   }
-  limbsGlossary = sensorMaskToLimbsGlossary(sensorMask);
+  sensorMaskToLimbsGlossary(sensorMask,limbsGlossary);
   Serial.println("\nLIMBS GLOSSARY : ");
   for (int i = 0; i < validSensors; i++) {
     Serial.println(limbsGlossary[i]);
