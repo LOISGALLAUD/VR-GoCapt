@@ -6,9 +6,9 @@
 #include <SPI.h>
 #include "SdFat.h"
 
-#define MAX_SENSORS 17
+#define MAX_SENSORS 21
 #define BYTES_TO_READ_IN_POSITIONING_MODULE 18
-#define BYTES_TO_READ_IN_LOAD_MODULE 18
+#define BYTES_TO_READ_IN_LOAD_MODULE 22
 #define N_CHANNELS 5
 #define N_ADDRESS 4  // 8 max
 #define ATTRIBUTES_SIZE 10
@@ -20,17 +20,17 @@
 #define CHIP_SELECT 5
 #define REC_LED 13
 #define REC_BUTTON 33
-#define ERR_LED 12
-#define LED1 14
-#define LED2 27
-#define LED3 26
+#define ERR_LED 26
+#define LED1 27
+#define LED2 14
+#define LED3 12
 
 //---------------------------------------------------------------------------
 /*PROTOTYPES*/
 
 // SETUP FUNCTIONS
 void setupSensors();
-bool readWifiConfig(String ssid, String password);
+bool readWifiConfig(String& ssid, String& password);
 void setupWifi();
 void setupSDCard();
 
@@ -39,6 +39,7 @@ String getNextFileName();
 void createFile(String fileName);
 void appendDataToFile(String fileName, int* data, size_t dataSize);
 void appendDataToFile(String fileName, const char* data);
+void appendDataToFile(String fileName, String *data);
 
 // SENSORS FUNCTIONS
 int readTwoBytesAsInt();
@@ -82,40 +83,39 @@ SdFat sd;
 // IMU SETUP
 TCA9548A i2cMux;
 byte addresses[N_ADDRESS] = {0xC0, 0xC2, 0xC4, 0xC6};  // 0xC0=Near Central Module -> 0xC6=Far Central Module                   
-byte loadModuleAddresses[2] = { 0xC6, 0x0 };
+byte loadModuleAddresses[2] = { 0xC6, 0xC6 };
 struct Channel {
   int chan;
   int length;
 };
 Channel channels[N_CHANNELS] = { 
   {CHAN0, 4}, // LEFT ARM
-  {CHAN1, 3}, // LEFT LEG
-  {CHAN2, 3}, // RIGHT LEG
-  {CHAN3, 3}, // HEAD
+  {CHAN1, 4}, // LEFT LEG
+  {CHAN2, 4}, // RIGHT LEG
+  {CHAN3, 4}, // HEAD
   {CHAN4, 4}  // RIGHT ARM
 };
 // int channels[N_CHANNELS] = { CHAN0, CHAN1, CHAN2, CHAN3, CHAN4};
 bool sensorMask[N_CHANNELS * N_ADDRESS];
-int validSensors;
+int validSensors = 0;
+int validLoadSensors = 0;
 int sensorTime = millis();
 
 // DATA GLOSSARY
 const char* dataGlossary = "['time','magx','magy','magz','accx','accy','accz','gyrx','gyry','gyrz']";
-const String limbs[N_CHANNELS * N_ADDRESS] = { 
+const String limbs[N_CHANNELS * N_ADDRESS] = { //nas means Not a Sensor, head on last address as hands and feets
   "lShoulder", "lArm", "lForearm", "lHand",  // CHAN0
-  "lThigh", "lLeg", "lFoot", "NaS"           // CHAN1
-  "rThigh", "rLeg", "rFoot", "NaS"           // CHAN2
-  "head", "spine", "hips", "NaS",            // CHAN3
+  "NaS", "lThigh", "lLeg", "lFoot",         // CHAN1
+  "NaS", "rThigh", "rLeg", "rFoot",         // CHAN2
+  "hips", "spine", "NaS", "head",           // CHAN3 
   "rShoulder", "rArm", "rForearm", "rHand",  // CHAN4
 };
-
-int test[6] = {0};
 
 String limbsGlossary[MAX_SENSORS];
 
 // WIFI SETUP
-const char* ssid;
-const char* password;
+String ssid;
+String password;
 unsigned int serverPort = 8080;
 IPAddress server(192, 168, 0, 255);
 WiFiUDP udp;
@@ -166,7 +166,7 @@ void setupSDCard() {
   Serial.println("SD SETUP IS DONE.");
 }
 
-bool readWifiConfig(String ssid, String password) {
+bool readWifiConfig(String& ssid, String& password) {
   File configFile = sd.open("/config.yml", O_READ);
   if (!configFile) {
     Serial.println("ERROR OPENING CONFIG FILE");
@@ -184,12 +184,14 @@ bool readWifiConfig(String ssid, String password) {
 
     if (str.startsWith("ssid:")) {
       ssid_found = true;
-      String ssid = str;
-      (ssid.substring(str.indexOf(":") + 1)).trim();
+      int delimiter = str.indexOf(":");
+      ssid = str.substring(delimiter + 1);
+      ssid.trim();
     } else if (str.startsWith("password:")) {
       password_found = true;
-      String password = str;
-      (password.substring(str.indexOf(":") + 1)).trim();
+      int delimiter = str.indexOf(":");
+      password = str.substring(delimiter + 1);
+      password.trim();
     }
 
     if (ssid_found && password_found) {
@@ -209,7 +211,7 @@ bool readWifiConfig(String ssid, String password) {
 
 void setupWifi() {
   Serial.println("CONNECTING TO NETWORK...");
-  bool configFound = readWifiConfig(ssid, password);
+  bool configFound = readWifiConfig(ssid, password); //passage par reference pour qu'on puisse sortir les string
   if (!configFound) {
     Serial.println("WIFI SETUP FAILED.");
     return;
@@ -222,7 +224,7 @@ void setupWifi() {
   Serial.println("\nCONNECTED TO NETWORK.");
   udp.begin(serverPort);
   Serial.println("UDP server started at port " + String(serverPort));
-  sendToServer("UDP server started at port " + String(serverPort));
+  sendToServer(String("UDP server started at port " + String(serverPort)));
   Serial.print("IP Address Microcontroller: ");
   Serial.println(WiFi.localIP());
   Serial.println("WIFI SETUP IS DONE.");
@@ -326,11 +328,12 @@ void appendDataToFile(String fileName, String *data) {
     return;
   }
   dataFile.print('[');
-  for (int i = 0; i < validSensors; i++) {
+  for (int i = 0; i < validSensors + validLoadSensors; i++) {
     dataFile.print(data[i]);
     dataFile.print(',');
   }
-  dataFile.print('],');
+  dataFile.print("],");
+  dataFile.close();
 }
 
 // SENSOR FUNCTIONS
@@ -357,30 +360,31 @@ void readSensorData(int* sensorArray) {
 
         // Read sensor data the right amount of bytes
         int bytesToRead;
+        int attributesToSend = ATTRIBUTES_SIZE - 1;
         if (currentAddress == (loadModuleAddresses[0] >> 1) |
         currentAddress == (loadModuleAddresses[1] >> 1)) {
           bytesToRead = BYTES_TO_READ_IN_LOAD_MODULE;
+          attributesToSend += 2;
         } else {
           bytesToRead = BYTES_TO_READ_IN_POSITIONING_MODULE;
         }
 
-        Serial.println("bytesToRead : " + String(bytesToRead));
+        // Serial.println("bytesToRead : " + String(bytesToRead)); //debug for load module /!\ really slows down the execution time /!
         Wire.requestFrom(addresses[j] >> 1, bytesToRead);
-        while (Wire.available() < bytesToRead)
-          ;
-
+        while (Wire.available() < bytesToRead);
         // Add the sensor data to the sensorArray
         sensorArray[index++] = millis() - sensorTime;
-        for (int k = 0; k < ATTRIBUTES_SIZE - 1; k++) {
+        for (int k = 0; k < attributesToSend; k++) {
           sensorArray[index++] = readTwoBytesAsInt();
         }
+        
       }
     }
   }
 }
 
 void sendToServer(int* data) {
-  int size = validSensors * ATTRIBUTES_SIZE;
+  int size = validSensors * ATTRIBUTES_SIZE + validLoadSensors;
   //4+size + 10*size ([+]+,+\O)
   char buffer[size * 11 + 4];
   buffer[0] = '[';
@@ -413,10 +417,12 @@ void sendToServer(String data) {
 
 void sendToServer(String* data) {
   udp.beginPacket(server, serverPort);
-  for (int i = 0; i < validSensors; i++) {
+  udp.print('[');
+  for (int i = 0; i < validSensors + validLoadSensors; i++) {
     udp.print(data[i]);
     udp.print(',');
   }
+  udp.print("],");
   udp.endPacket();
 }
 
@@ -446,9 +452,11 @@ void sensorMaskToLimbsGlossary(bool* sensorMask,String* limbsGlossary){
 
         // Rajouter les deux capteurs de charge pour les pieds
         if (limbs[j + i * N_ADDRESS] == "lFoot") {
+          validLoadSensors += 2;
           limbsGlossary[index++] = "lFrontLoad";
           limbsGlossary[index++] = "lBackLoad";
         } else if (limbs[j + i * N_ADDRESS] == "rFoot") {
+          validLoadSensors += 2;
           limbsGlossary[index++] = "rFrontLoad";
           limbsGlossary[index++] = "rBackLoad";
         }
@@ -529,11 +537,18 @@ void setup() {
   pinMode(REC_BUTTON, INPUT_PULLUP);
 
   // LEDS STARTING SETUP
+  digitalWrite(REC_LED, HIGH);
+  digitalWrite(LED1, HIGH);
+  digitalWrite(LED2, HIGH);
   digitalWrite(LED3, HIGH);
   digitalWrite(ERR_LED, HIGH);
 
-  // Setup
   delay(1000);
+  digitalWrite(REC_LED, LOW);
+  digitalWrite(LED1, LOW);
+  digitalWrite(LED2, LOW);
+
+  // Setup
   setupSDCard();
   setupSensors();
   setupWifi();
@@ -549,7 +564,7 @@ void setup() {
   }
   sensorMaskToLimbsGlossary(sensorMask,limbsGlossary);
   Serial.println("\nLIMBS GLOSSARY : ");
-  for (int i = 0; i < validSensors; i++) {
+  for (int i = 0; i < validSensors + validLoadSensors; i++) {
     Serial.println(limbsGlossary[i]);
   }
 
@@ -562,10 +577,10 @@ void setup() {
 void loop() {
   stateMachine();
   if (state == 1) {
-    int sensorData[validSensors * ATTRIBUTES_SIZE] = { 0 };
+    int sensorData[validSensors * ATTRIBUTES_SIZE + validLoadSensors] = { 0 };
     readSensorData(sensorData);
     sendToServer(sensorData);
-    appendDataToFile(fileName, sensorData, validSensors * ATTRIBUTES_SIZE);
+    appendDataToFile(fileName, sensorData, validSensors * ATTRIBUTES_SIZE + validLoadSensors);
     digitalWrite(REC_LED, HIGH);
   } else {
     digitalWrite(REC_LED, LOW);
