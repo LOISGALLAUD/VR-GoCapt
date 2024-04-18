@@ -8,13 +8,15 @@
 
 #define MAX_SENSORS 21
 #define BYTES_TO_READ_IN_POSITIONING_MODULE 18
+#define BYTES_TO_READ_IN_POSITIONING_MODULE_2 12
 #define BYTES_TO_READ_IN_LOAD_MODULE 22
 #define N_CHANNELS 5
 #define N_ADDRESS 4  // 8 max
-#define ATTRIBUTES_SIZE 10
+#define ATTRIBUTES_SIZE 16
 #define ADDR_BEGIN 1
 #define CMPS_GET_ANGLE16 2
 #define CMPS_RAW9 6
+#define CMPS_RAW6 0x1F
 #define CMPS_DELAY 5
 #define UDP_TX_PACKET_MAX_SIZE 100
 #define CHIP_SELECT 5
@@ -54,7 +56,10 @@ void sensorMaskToLimbsGlossary(bool* sensorMask,String* limbsGlossary);
 void stateMachine();
 void setIndicatorLeds(int count);
 void resetLeds();
+void resetLedsForErr();
+void resetAllLeds();
 void startAcquisition();
+void BlinkForFun();
 
 // INTERRUPTS
 void IRAM_ATTR isr_rec();
@@ -64,6 +69,9 @@ void IRAM_ATTR isr_rec();
 
 // STATE MACHINE
 int state = 0;
+int BlinkForFunVar = 1;
+int steadyState = 0;
+int SStime = 0;
 
 // REC BUTTON
 int buttonTime = millis();
@@ -102,13 +110,13 @@ int validLoadSensors = 0;
 int sensorTime = millis();
 
 // DATA GLOSSARY
-const char* dataGlossary = "['time','magx','magy','magz','accx','accy','accz','gyrx','gyry','gyrz']";
+const char* dataGlossary = "[\"time\",\"magx\",\"magy\",\"magz\",\"accx\",\"accy\",\"accz\",\"gyrx\",\"gyry\",\"gyrz\",\"accnrx\",\"accnry\",\"accnrz\",\"gyrcalx\",\"gyrcaly\",\"gyrcalz\",]""";
 const String limbs[N_CHANNELS * N_ADDRESS] = { //nas means Not a Sensor, head on last address as hands and feets
-  "lShoulder", "lArm", "lForearm", "lHand",  // CHAN0
-  "NaS", "lThigh", "lLeg", "lFoot",         // CHAN1
-  "NaS", "rThigh", "rLeg", "rFoot",         // CHAN2
-  "hips", "spine", "NaS", "head",           // CHAN3 
-  "rShoulder", "rArm", "rForearm", "rHand",  // CHAN4
+  "\"lShoulder\"", "\"lArm\"", "\"lForearm\"", "\"lHand\"",  // CHAN0
+  "\"NaS\"", "\"lThigh\"", "\"lLeg\"", "\"lFoot\"",         // CHAN1
+  "\"NaS\"", "\"rThigh\"", "\"rLeg\"", "\"rFoot\"",         // CHAN2
+  "\"hips\"", "\"spine\"", "\"NaS\"", "\"head\"",           // CHAN3 
+  "\"rShoulder\"", "\"rArm\"", "\"rForearm\"", "\"rHand\"",  // CHAN4
 };
 
 String limbsGlossary[MAX_SENSORS];
@@ -147,6 +155,7 @@ void setupSensors() {
       }
       Serial.println("");
       sensorMask[j + i * N_ADDRESS] = sensorFound;
+      BlinkForFun();
     }
   }
   validSensors = countNonZero(sensorMask, sizeof(sensorMask) / sizeof(bool));
@@ -158,6 +167,8 @@ void setupSDCard() {
   if (!sd.begin(CHIP_SELECT, SD_SCK_MHZ(35))) {
     while (true) {
       Serial.print(".");
+      resetLedsForErr();
+      digitalWrite(ERR_LED,HIGH);
       delay(2000);
     }
     Serial.println("SD FAILED.");
@@ -291,9 +302,7 @@ void appendDataToFile(String fileName, int* data, size_t dataSize) {
   }
 
   dataFile.print(String("["));
-  // serializeJson(data, dataFile);
   for (int i = 0; i < dataSize; i++) {
-    //Serial.println(data[i]); //DEBUG
     dataFile.print(String(data[i]) + ',');  //can cause prbls due to SdFat
   }
   dataFile.print(String("],"));
@@ -308,6 +317,7 @@ void appendDataToFile(String fileName, const char* data) {
   File dataFile = sd.open(fileName.c_str(), O_WRITE | O_AT_END);
   if (!dataFile) {
     Serial.println("Error opening file!");
+    resetLedsForErr();
     digitalWrite(ERR_LED, HIGH);
     return;
   }
@@ -324,6 +334,7 @@ void appendDataToFile(String fileName, String *data) {
   File dataFile = sd.open(fileName.c_str(), O_WRITE | O_AT_END);
   if (!dataFile) {
     Serial.println("Error opening file!");
+    resetLedsForErr();
     digitalWrite(ERR_LED, HIGH);
     return;
   }
@@ -361,8 +372,7 @@ void readSensorData(int* sensorArray) {
         // Read sensor data the right amount of bytes
         int bytesToRead;
         int attributesToSend = ATTRIBUTES_SIZE - 1;
-        if (currentAddress == (loadModuleAddresses[0] >> 1) |
-        currentAddress == (loadModuleAddresses[1] >> 1)) {
+        if ((currentAddress == (loadModuleAddresses[0] >> 1) && (i == 1) )||( currentAddress == (loadModuleAddresses[1] >> 1) && (i==2))) { //OxCE and chan for feet
           bytesToRead = BYTES_TO_READ_IN_LOAD_MODULE;
           attributesToSend += 2;
         } else {
@@ -374,10 +384,20 @@ void readSensorData(int* sensorArray) {
         while (Wire.available() < bytesToRead);
         // Add the sensor data to the sensorArray
         sensorArray[index++] = millis() - sensorTime;
-        for (int k = 0; k < attributesToSend; k++) {
+        for (int k = 0; k < attributesToSend - 6; k++) {
           sensorArray[index++] = readTwoBytesAsInt();
         }
-        
+
+        Wire.beginTransmission(currentAddress);
+        Wire.write(CMPS_RAW6);
+        Wire.endTransmission();
+
+        Wire.requestFrom(addresses[j] >> 1, BYTES_TO_READ_IN_POSITIONING_MODULE_2);
+        while (Wire.available() < BYTES_TO_READ_IN_POSITIONING_MODULE_2);
+        // Add the sensor data to the sensorArray
+        for (int k = 0; k < 6; k++) {
+          sensorArray[index++] = readTwoBytesAsInt();
+        }
       }
     }
   }
@@ -386,17 +406,16 @@ void readSensorData(int* sensorArray) {
 void sendToServer(int* data) {
   int size = validSensors * ATTRIBUTES_SIZE + validLoadSensors;
   //4+size + 10*size ([+]+,+\O)
-  char buffer[size * 11 + 4];
+  char buffer[size * 11 + 4];   // Initialement size*11
   buffer[0] = '[';
   int offset = 1;
-
+  
   for (int i = 0; i < size; i++) {
     offset += sprintf(buffer + offset, "%d,", data[i]);
   }
   buffer[offset] = ']';
   buffer[offset + 1] = ',';
   buffer[offset + 2] = '\0';  // Remove the last comma and add a null terminator
-
   udp.beginPacket(server, serverPort);
   udp.print(buffer);
   udp.endPacket();
@@ -451,14 +470,14 @@ void sensorMaskToLimbsGlossary(bool* sensorMask,String* limbsGlossary){
         limbsGlossary[index++] = limbs[j + i * N_ADDRESS]; // Ajoute le membre au glossaire
 
         // Rajouter les deux capteurs de charge pour les pieds
-        if (limbs[j + i * N_ADDRESS] == "lFoot") {
+        if (limbs[j + i * N_ADDRESS] == "\"lFoot\"") {
           validLoadSensors += 2;
-          limbsGlossary[index++] = "lFrontLoad";
-          limbsGlossary[index++] = "lBackLoad";
-        } else if (limbs[j + i * N_ADDRESS] == "rFoot") {
+          limbsGlossary[index++] = "\"lFrontLoad\"";
+          limbsGlossary[index++] = "\"lBackLoad\"";
+        } else if (limbs[j + i * N_ADDRESS] == "\"rFoot\"") {
           validLoadSensors += 2;
-          limbsGlossary[index++] = "rFrontLoad";
-          limbsGlossary[index++] = "rBackLoad";
+          limbsGlossary[index++] = "\"rFrontLoad\"";
+          limbsGlossary[index++] = "\"rBackLoad\"";
         }
       }
     }
@@ -485,16 +504,34 @@ void stateMachine() {
     setIndicatorLeds(count);
   } else {
     resetLeds();
+    recButton.pressed = false; //correction
   }
 }
 
 void setIndicatorLeds(int count) {
+  // digitalWrite(REC_LED, LOW);
+  // digitalWrite(ERR_LED, LOW);
   digitalWrite(LED1, HIGH);
   digitalWrite(LED2, count > 1);
   digitalWrite(LED3, count > 2);
 }
 
 void resetLeds() {
+  digitalWrite(LED1, LOW);
+  digitalWrite(LED2, LOW);
+  digitalWrite(LED3, LOW);
+}
+
+void resetAllLeds(){
+  digitalWrite(REC_LED, LOW);
+  digitalWrite(ERR_LED, LOW);
+  digitalWrite(LED1, LOW);
+  digitalWrite(LED2, LOW);
+  digitalWrite(LED3, LOW);
+}
+
+void resetLedsForErr(){
+  digitalWrite(REC_LED, LOW);
   digitalWrite(LED1, LOW);
   digitalWrite(LED2, LOW);
   digitalWrite(LED3, LOW);
@@ -515,7 +552,36 @@ void startAcquisition() {
   recButton.pressed = false;
 }
 
+void BlinkForFun(){
+  BlinkForFunVar = (BlinkForFunVar > 64)?(1):(BlinkForFunVar*2);
+  digitalWrite(REC_LED, (BlinkForFunVar==1)?HIGH:LOW);
+  digitalWrite(LED3, (BlinkForFunVar==2 || BlinkForFunVar==128)?HIGH:LOW);
+  digitalWrite(LED2, (BlinkForFunVar==4 || BlinkForFunVar==64)?HIGH:LOW);
+  digitalWrite(LED1, (BlinkForFunVar==8 || BlinkForFunVar==32)?HIGH:LOW);
+  digitalWrite(ERR_LED, (BlinkForFunVar==16)?HIGH:LOW);
+  delay(100);
+}
 
+void PrintState(int validsensors){
+  int test = validsensors-1;
+  if(steadyState == 0){
+    SStime = millis();
+    steadyState = 1;
+  }
+  if (millis()-SStime < 800 && (recButton.pressed == false)){
+    digitalWrite(REC_LED, (test&1<<0)?HIGH:LOW);
+    digitalWrite(LED3, (test&1<<1)?HIGH:LOW);
+    digitalWrite(LED2, (test&1<<2)?HIGH:LOW);
+    digitalWrite(LED1, (test&1<<3)?HIGH:LOW);
+    digitalWrite(ERR_LED, (test&1<<4)?HIGH:LOW);
+  }
+  else if((millis()-SStime)>=800 && (millis()-SStime)<1300 && (recButton.pressed == false)){
+    resetAllLeds();
+  }
+  else{
+    steadyState = 0;
+  }
+}
 //---------------------------------------------------------------------------//
 /* INTERRUPTS */
 
@@ -543,33 +609,41 @@ void setup() {
   digitalWrite(LED3, HIGH);
   digitalWrite(ERR_LED, HIGH);
 
-  delay(1000);
-  digitalWrite(REC_LED, LOW);
-  digitalWrite(LED1, LOW);
-  digitalWrite(LED2, LOW);
-
+  delay(500);
+  BlinkForFun();
+  delay(500);
   // Setup
+  BlinkForFun();
   setupSDCard();
+  BlinkForFun();
   setupSensors();
+  BlinkForFun();
   setupWifi();
-
-  // LEDS SETUP STATE
-  digitalWrite(LED3, LOW);
-  digitalWrite(ERR_LED, LOW);
+  BlinkForFun();
 
   int maskSize = N_ADDRESS*N_CHANNELS;
   Serial.print("MASK : ");
   for (int i = 0; i < sizeof(sensorMask) / sizeof(sensorMask[0]); i++) {
     Serial.print(sensorMask[i]);
+    BlinkForFun();
   }
   sensorMaskToLimbsGlossary(sensorMask,limbsGlossary);
   Serial.println("\nLIMBS GLOSSARY : ");
   for (int i = 0; i < validSensors + validLoadSensors; i++) {
     Serial.println(limbsGlossary[i]);
+    BlinkForFun();
   }
 
   // INTERRUPTS
   attachInterrupt(recButton.pin, isr_rec, FALLING);
+
+  // LEDS SETUP STATE
+
+  digitalWrite(REC_LED, LOW);
+  digitalWrite(LED1, LOW);
+  digitalWrite(LED2, LOW);
+  digitalWrite(LED3, LOW);
+  digitalWrite(ERR_LED, LOW);
 
   Serial.println("SETUP IS DONE. READY TO START.");
 }
@@ -584,5 +658,6 @@ void loop() {
     digitalWrite(REC_LED, HIGH);
   } else {
     digitalWrite(REC_LED, LOW);
+    PrintState(validSensors);
   }
 }

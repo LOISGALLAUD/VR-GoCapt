@@ -1,7 +1,7 @@
 <!--markdownlint-disable-file MD033-->
 <!--markdownlint-disable-file MD041-->
 <img src="images/readme/header.png" width="100%" align="center" alt="README.md" title="README.md">
-<h1 align="center"><b>VR-GoCapt</b></h1>
+<h1 align="center"><b>VRGOCAPT</b></h1>
 <p align="center" style="font-size: 1.2rem; color: #888; font-style: italic;">
 Equipement de capteurs intelligents conçu pour la VR
 </p>
