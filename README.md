@@ -54,17 +54,17 @@ Pour que la personne qui est chargée de l'analyse des données puisse les explo
 ```txt
 [
     "lShoulder", "lArm", "lForearm", "lHand",   // CHAN0
-    "lThigh", "lLeg", "lFoot", "NaS",           // CHAN1
-    "rThigh", "rLeg", "rFoot", "NaS",           // CHAN2
-    "head", "back", "belt", "NaS",              // CHAN3
+    "lThigh", "lLeg", "NaS", "lFoot",           // CHAN1
+    "rThigh", "rLeg", "NaS", "rFoot",           // CHAN2
+    "belt", "back", "NaS", "head",              // CHAN3
     "rShoulder", "rArm", "rForearm", "rHand",   // CHAN4
-
 ],
 [
     "time",
     "magx","magy","magz",
     "accx","accy","accz",
     "gyrx","gyry","gyrz",
+    ("frontLoad", "backLoad"),
 ],
 ... // Sensors data
 ```

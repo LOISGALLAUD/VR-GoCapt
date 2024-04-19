@@ -59,7 +59,7 @@ void resetLeds();
 void resetLedsForErr();
 void resetAllLeds();
 void startAcquisition();
-void BlinkForFun();
+void blinkForFun();
 
 // INTERRUPTS
 void IRAM_ATTR isr_rec();
@@ -69,7 +69,7 @@ void IRAM_ATTR isr_rec();
 
 // STATE MACHINE
 int state = 0;
-int BlinkForFunVar = 1;
+int blinkForFunVar = 1;
 int steadyState = 0;
 int SStime = 0;
 
@@ -155,7 +155,7 @@ void setupSensors() {
       }
       Serial.println("");
       sensorMask[j + i * N_ADDRESS] = sensorFound;
-      BlinkForFun();
+      blinkForFun();
     }
   }
   validSensors = countNonZero(sensorMask, sizeof(sensorMask) / sizeof(bool));
@@ -552,13 +552,13 @@ void startAcquisition() {
   recButton.pressed = false;
 }
 
-void BlinkForFun(){
-  BlinkForFunVar = (BlinkForFunVar > 64)?(1):(BlinkForFunVar*2);
-  digitalWrite(REC_LED, (BlinkForFunVar==1)?HIGH:LOW);
-  digitalWrite(LED3, (BlinkForFunVar==2 || BlinkForFunVar==128)?HIGH:LOW);
-  digitalWrite(LED2, (BlinkForFunVar==4 || BlinkForFunVar==64)?HIGH:LOW);
-  digitalWrite(LED1, (BlinkForFunVar==8 || BlinkForFunVar==32)?HIGH:LOW);
-  digitalWrite(ERR_LED, (BlinkForFunVar==16)?HIGH:LOW);
+void blinkForFun(){
+  blinkForFunVar = (blinkForFunVar > 64)?(1):(blinkForFunVar*2);
+  digitalWrite(REC_LED, (blinkForFunVar==1)?HIGH:LOW);
+  digitalWrite(LED3, (blinkForFunVar==2 || blinkForFunVar==128)?HIGH:LOW);
+  digitalWrite(LED2, (blinkForFunVar==4 || blinkForFunVar==64)?HIGH:LOW);
+  digitalWrite(LED1, (blinkForFunVar==8 || blinkForFunVar==32)?HIGH:LOW);
+  digitalWrite(ERR_LED, (blinkForFunVar==16)?HIGH:LOW);
   delay(100);
 }
 
@@ -610,28 +610,27 @@ void setup() {
   digitalWrite(ERR_LED, HIGH);
 
   delay(500);
-  BlinkForFun();
+  blinkForFun();
   delay(500);
-  // Setup
-  BlinkForFun();
+  blinkForFun();
   setupSDCard();
-  BlinkForFun();
+  blinkForFun();
   setupSensors();
-  BlinkForFun();
+  blinkForFun();
   setupWifi();
-  BlinkForFun();
+  blinkForFun();
 
   int maskSize = N_ADDRESS*N_CHANNELS;
   Serial.print("MASK : ");
   for (int i = 0; i < sizeof(sensorMask) / sizeof(sensorMask[0]); i++) {
     Serial.print(sensorMask[i]);
-    BlinkForFun();
+    blinkForFun();
   }
   sensorMaskToLimbsGlossary(sensorMask,limbsGlossary);
   Serial.println("\nLIMBS GLOSSARY : ");
   for (int i = 0; i < validSensors + validLoadSensors; i++) {
     Serial.println(limbsGlossary[i]);
-    BlinkForFun();
+    blinkForFun();
   }
 
   // INTERRUPTS
