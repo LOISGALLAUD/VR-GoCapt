@@ -59,8 +59,8 @@ void readFlexiForceSensors(void) {
   backLoad = 100*ANALOG_TO_VOLTAGE(analogRead(BACK_LOAD));
 
   // Print data
-  Serial.println("Front Load: " + String(frontLoad));
-  Serial.println("Back Load: " + String(backLoad));
+  // Serial.println("Front Load: " + String(frontLoad));
+  // Serial.println("Back Load: " + String(backLoad));
 }
 
 void readIMUData() {
@@ -88,16 +88,16 @@ void readIMUData() {
       magData[i] = map(mag[i], -400, 400, -100, 100);
     }
 
-    Serial.println("----------------------------------");
-    Serial.println("accX : " + String(accData[0]));
-    Serial.println("accY : " + String(accData[1]));
-    Serial.println("accZ : " + String(accData[2]));
-    Serial.println("gyroX : " + String(gyroData[0]));
-    Serial.println("gyroY : " + String(gyroData[1]));
-    Serial.println("gyroZ : " + String(gyroData[2]));
-    Serial.println("magX : " + String(magData[0]));
-    Serial.println("magY : " + String(magData[1]));
-    Serial.println("magZ : " + String(magData[2]));
+    // Serial.println("----------------------------------");
+    // Serial.println("accX : " + String(accData[0]));
+    // Serial.println("accY : " + String(accData[1]));
+    // Serial.println("accZ : " + String(accData[2]));
+    // Serial.println("gyroX : " + String(gyroData[0]));
+    // Serial.println("gyroY : " + String(gyroData[1]));
+    // Serial.println("gyroZ : " + String(gyroData[2]));
+    // Serial.println("magX : " + String(magData[0]));
+    // Serial.println("magY : " + String(magData[1]));
+    // Serial.println("magZ : " + String(magData[2]));
   }
 }
 
@@ -137,5 +137,5 @@ void setup() {
 void loop() {
   readFlexiForceSensors();
   readIMUData();
-  delay(100);
+  delay(10);
 }

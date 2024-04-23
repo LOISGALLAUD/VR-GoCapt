@@ -60,6 +60,7 @@ void resetLedsForErr();
 void resetAllLeds();
 void startAcquisition();
 void blinkForFun();
+void allBlink(int time);
 
 // INTERRUPTS
 void IRAM_ATTR isr_rec();
@@ -72,6 +73,9 @@ int state = 0;
 int blinkForFunVar = 1;
 int steadyState = 0;
 int SStime = 0;
+int WifiTimeOut = 0;
+int WifiBlink = 0;
+bool WifiConnected = false;
 
 // REC BUTTON
 int buttonTime = millis();
@@ -227,12 +231,36 @@ void setupWifi() {
     Serial.println("WIFI SETUP FAILED.");
     return;
   }
+  WifiTimeOut = millis();
+  WifiBlink = millis();
+  bool ledBlink = LOW;
   bool status = WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) {
-    Serial.print(".");
-    delay(100);
+    if (millis()-WifiBlink > 100){
+      Serial.print(".");
+      WifiBlink = millis();
+      digitalWrite(ERR_LED,LOW);
+      digitalWrite(REC_LED,LOW);
+      digitalWrite(LED1,ledBlink);
+      digitalWrite(LED1,ledBlink);
+      digitalWrite(LED2,ledBlink);
+      digitalWrite(LED3,ledBlink);
+      ledBlink = !ledBlink;
+    }
+    if (millis()-WifiTimeOut > 8000){
+      Serial.println("\nNOT CONNECTED TO NETWORK.");
+      WifiConnected = false;
+      Serial.println("WIFI SETUP IS DONE.");
+      digitalWrite(LED1,LOW);
+      digitalWrite(LED2,LOW);
+      digitalWrite(LED3,LOW);
+      status = LOW;
+      return;
+    }
   }
   Serial.println("\nCONNECTED TO NETWORK.");
+  WifiConnected = true;
+  allBlink(800);
   udp.begin(serverPort);
   Serial.println("UDP server started at port " + String(serverPort));
   sendToServer(String("UDP server started at port " + String(serverPort)));
@@ -294,9 +322,12 @@ void appendDataToFile(String fileName, int* data, size_t dataSize) {
   Append the data to the existing file
   Utilisée pour envoyer les données des capteurs (qui sont des entiers)
   */
+  int count = 0;
   File dataFile = sd.open(fileName.c_str(), O_WRITE | O_AT_END);
   if (!dataFile) {
-    Serial.println("Error opening file!");
+    if (count > 100){
+      Serial.println("Error opening file!");
+    }
     digitalWrite(ERR_LED, HIGH);
     return;
   }
@@ -314,9 +345,12 @@ void appendDataToFile(String fileName, const char* data) {
   Append the data to the existing file
   Utilisée pour envoyer le glossaire (qui est déjà une chaîne de caractères)
   */
+  int count = 0;
   File dataFile = sd.open(fileName.c_str(), O_WRITE | O_AT_END);
   if (!dataFile) {
-    Serial.println("Error opening file!");
+    if (count > 100){
+      Serial.println("Error opening file!");
+    }
     resetLedsForErr();
     digitalWrite(ERR_LED, HIGH);
     return;
@@ -331,9 +365,12 @@ void appendDataToFile(String fileName, String *data) {
   Append the data to the existing file
   Utilisée pour envoyer le glossaire des membres (qui est un tableau de chaînes de caractères)
   */
+  int count = 0;
   File dataFile = sd.open(fileName.c_str(), O_WRITE | O_AT_END);
   if (!dataFile) {
-    Serial.println("Error opening file!");
+    if (count > 100){
+      Serial.println("Error opening file!");
+    }
     resetLedsForErr();
     digitalWrite(ERR_LED, HIGH);
     return;
@@ -370,13 +407,16 @@ void readSensorData(int* sensorArray) {
         Wire.endTransmission();
 
         // Read sensor data the right amount of bytes
+        bool exclusion;
         int bytesToRead;
         int attributesToSend = ATTRIBUTES_SIZE - 1;
         if ((currentAddress == (loadModuleAddresses[0] >> 1) && (i == 1) )||( currentAddress == (loadModuleAddresses[1] >> 1) && (i==2))) { //OxCE and chan for feet
           bytesToRead = BYTES_TO_READ_IN_LOAD_MODULE;
           attributesToSend += 2;
+          exclusion = false;
         } else {
           bytesToRead = BYTES_TO_READ_IN_POSITIONING_MODULE;
+          exclusion = true;
         }
 
         // Serial.println("bytesToRead : " + String(bytesToRead)); //debug for load module /!\ really slows down the execution time /!
@@ -387,16 +427,21 @@ void readSensorData(int* sensorArray) {
         for (int k = 0; k < attributesToSend - 6; k++) {
           sensorArray[index++] = readTwoBytesAsInt();
         }
+        if (exclusion){
+          Wire.beginTransmission(currentAddress);
+          Wire.write(CMPS_RAW6);
+          Wire.endTransmission();
 
-        Wire.beginTransmission(currentAddress);
-        Wire.write(CMPS_RAW6);
-        Wire.endTransmission();
-
-        Wire.requestFrom(addresses[j] >> 1, BYTES_TO_READ_IN_POSITIONING_MODULE_2);
-        while (Wire.available() < BYTES_TO_READ_IN_POSITIONING_MODULE_2);
-        // Add the sensor data to the sensorArray
-        for (int k = 0; k < 6; k++) {
-          sensorArray[index++] = readTwoBytesAsInt();
+          Wire.requestFrom(addresses[j] >> 1, BYTES_TO_READ_IN_POSITIONING_MODULE_2);
+          while (Wire.available() < BYTES_TO_READ_IN_POSITIONING_MODULE_2);
+          // Add the sensor data to the sensorArray
+          for (int k = 0; k < 6; k++) {
+            sensorArray[index++] = readTwoBytesAsInt();
+          }
+        } else {
+          for (int k = 0; k < 6; k++) {
+            sensorArray[index++] = 0;
+          }
         }
       }
     }
@@ -540,8 +585,10 @@ void resetLedsForErr(){
 void startAcquisition() {
   resetLeds();
   if (state == 0) {
-    sendToServer(limbsGlossary);
-    sendToServer(dataGlossary);
+    if (WifiConnected){
+      sendToServer(limbsGlossary);
+      sendToServer(dataGlossary);
+    }
     fileName = getNextFileName();
     createFile(fileName);
     appendDataToFile(fileName, limbsGlossary); // Send the limb glossary
@@ -560,6 +607,20 @@ void blinkForFun(){
   digitalWrite(LED1, (blinkForFunVar==8 || blinkForFunVar==32)?HIGH:LOW);
   digitalWrite(ERR_LED, (blinkForFunVar==16)?HIGH:LOW);
   delay(100);
+}
+
+void allBlink(int time){
+  digitalWrite(ERR_LED,HIGH);
+  digitalWrite(REC_LED,HIGH);
+  digitalWrite(LED1,HIGH);
+  digitalWrite(LED2,HIGH);
+  digitalWrite(LED3,HIGH);
+  delay(time);
+  digitalWrite(ERR_LED,LOW);
+  digitalWrite(REC_LED,LOW);
+  digitalWrite(LED1,LOW);
+  digitalWrite(LED2,LOW);
+  digitalWrite(LED3,LOW);
 }
 
 void PrintState(int validsensors){
@@ -652,7 +713,9 @@ void loop() {
   if (state == 1) {
     int sensorData[validSensors * ATTRIBUTES_SIZE + validLoadSensors] = { 0 };
     readSensorData(sensorData);
-    sendToServer(sensorData);
+    if (WifiConnected){
+      sendToServer(sensorData);
+    }
     appendDataToFile(fileName, sensorData, validSensors * ATTRIBUTES_SIZE + validLoadSensors);
     digitalWrite(REC_LED, HIGH);
   } else {
